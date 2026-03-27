@@ -1,0 +1,86 @@
+1. Sudden Spike in Transaction Amount
+	User usually spends ₹5K–₹20K
+	Suddenly sends ₹7,50,000
+
+2. Structuring (Smurfing)
+	20 transactions of ₹49,000
+	Avoids ₹50K reporting threshold
+
+3. Geographic Behavior Change
+	User always in India
+	Suddenly transaction from Dubai / Cayman
+
+4. New Account High Activity
+	Account created 5 days ago
+	₹10 lakh transferred
+
+5. Rapid In-Out Movement (Layering)
+	₹5L credited
+	₹4.9L sent within minutes
+
+6. Dormant Account Activation
+	No activity for 1 year
+	Suddenly multiple large transactions
+
+7. Linked Account Behavior
+	Multiple accounts sending to same receiver
+
+8. Balance Drain Pattern
+	Account balance ₹10L
+	Drops to ₹500 quickly
+
+9. Time-Based Anomaly
+	User active 9 AM–9 PM
+	Suddenly transactions at 3 AM
+
+10. Transaction Type Change
+	User always does UPI
+	Suddenly large international wire transfer
+
+11 . Velocity Change (Behavior Speed Shift)
+	User: 2 transactions/day
+	Suddenly: 20 transactions in 1 hour
+
+12. Merchant / Receiver Pattern Change
+	User always sends to 2 known accounts (Like already sent accounts)
+	Suddenly sends to 10 unknown accounts (Continously sends to unknown accounts)
+
+13. Circular Transactions (Money Cycling)
+	same money returning to origin
+	loop detection
+
+14. Spending Pattern Shift
+	Normally groceries, bills
+	Suddenly luxury/high-value transfers
+
+15. Repeated Failed + Success Pattern
+	Multiple failed attempts
+	Then one successful large transaction
+
+16. Gap Pattern Anomaly
+	Regular daily activity
+	Suddenly silent → then burst activity
+
+17. Gradual Escalation Pattern
+	₹10K → ₹50K → ₹2L → ₹8L	
+
+
+
+🔹 Threshold Violation
+₹10L+ transaction → must report
+🔹 Frequent Cash Deposits
+Many cash deposits just below limit
+🔹 High-Risk Country Transfers
+FATF-listed countries
+🔹 KYC Mismatch
+Name/location mismatch
+🔹 Multiple Failed Transactions
+Could indicate fraud attempt
+
+
+Behavior Features You Should Compute
+avg_transaction_amount
+max_transaction_amount
+transaction_frequency
+usual_locations
+usual_time_range

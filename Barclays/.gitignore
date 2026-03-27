@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.Python
+venv/
+env/
+.env
+
+# Build outputs
+/frontend/build/
+/frontend/dist/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Exclude large files and folders
+demo.mp4
+dataset/
+*.mp4
+*.avi
+*.mov
+
+# Local environment
+.env.local
+.env.*.local
+
+# Large model files (already committed)
+# trained_model_api.pkl is included as it's the actual model
+
+# Temporary files
+*.tmp
+*.bak
+temp/
+tmp/

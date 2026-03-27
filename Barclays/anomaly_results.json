@@ -1,0 +1,1007 @@
+{
+  "summary": {
+    "total_transactions": 430972901,
+    "anomalies_found": 39846,
+    "normal_count": 430933055,
+    "anomaly_rate": 9.245592914901162e-05,
+    "statistics": {
+      "mean": 6531385.776059275,
+      "std_dev": 1835798992.0324266,
+      "min": 0.0,
+      "max": 8158609321727.61
+    }
+  },
+  "top_anomalies": [
+    {
+      "amount_received": 8158609321727.61,
+      "amount_paid": 89488422126.91,
+      "score": 3950.8535253213845,
+      "reasons": [
+        "Z-score: 3949.05",
+        "Top 5% amount",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 8158609321727.61,
+      "amount_paid": 8158609321727.61,
+      "score": 3950.0535253213843,
+      "reasons": [
+        "Z-score: 3949.05",
+        "Top 5% amount"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 8158609321727.61,
+      "amount_paid": 89488422126.91,
+      "score": 3048.17832054548,
+      "reasons": [
+        "Z-score: 3046.38",
+        "Top 5% amount",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 8158609321727.61,
+      "amount_paid": 8158609321727.61,
+      "score": 3047.3783205454797,
+      "reasons": [
+        "Z-score: 3046.38",
+        "Top 5% amount"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 4834581798136.35,
+      "amount_paid": 4834581798136.35,
+      "score": 2577.642039617179,
+      "reasons": [
+        "Z-score: 2577.64"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 4690177379386.28,
+      "amount_paid": 51444622070.44,
+      "score": 2271.0094299961024,
+      "reasons": [
+        "Z-score: 2270.21",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 4690177379386.28,
+      "amount_paid": 4690177379386.28,
+      "score": 2270.2094299961022,
+      "reasons": [
+        "Z-score: 2270.21"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 5257958937816.24,
+      "amount_paid": 479490574885.87,
+      "score": 2018.816560313564,
+      "reasons": [
+        "Z-score: 2018.02",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 5257958937816.24,
+      "amount_paid": 5257958937816.24,
+      "score": 2018.016560313564,
+      "reasons": [
+        "Z-score: 2018.02"
+      ],
+      "is_laundering": 1
+    },
+    {
+      "amount_received": 3644853662746.95,
+      "amount_paid": 34581154295.51,
+      "score": 1977.5594004588506,
+      "reasons": [
+        "Z-score: 1976.76",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 3644853662746.95,
+      "amount_paid": 3644853662746.95,
+      "score": 1976.7594004588507,
+      "reasons": [
+        "Z-score: 1976.76"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 4690177379386.28,
+      "amount_paid": 51444622070.44,
+      "score": 1752.0845708547424,
+      "reasons": [
+        "Z-score: 1751.28",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 4690177379386.28,
+      "amount_paid": 4690177379386.28,
+      "score": 1751.2845708547425,
+      "reasons": [
+        "Z-score: 1751.28"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 3214908007360.4,
+      "amount_paid": 3214908007360.4,
+      "score": 1692.582786827151,
+      "reasons": [
+        "Z-score: 1692.58"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2365544007875.24,
+      "amount_paid": 2365544007875.24,
+      "score": 1285.0361627708805,
+      "reasons": [
+        "Z-score: 1285.04"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 25970747351.32,
+      "score": 1100.7516541505956,
+      "reasons": [
+        "Z-score: 1099.95",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 2020628026922.11,
+      "score": 1099.9516541505957,
+      "reasons": [
+        "Z-score: 1099.95"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 25970747351.32,
+      "score": 1091.0290502332477,
+      "reasons": [
+        "Z-score: 1090.23",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 2020628026922.11,
+      "score": 1090.2290502332478,
+      "reasons": [
+        "Z-score: 1090.23"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 1088.989795196276,
+      "reasons": [
+        "Z-score: 1088.19",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 1088.189795196276,
+      "reasons": [
+        "Z-score: 1088.19"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 25970747351.32,
+      "score": 1072.6313140330044,
+      "reasons": [
+        "Z-score: 1071.83",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 2020628026922.11,
+      "score": 1071.8313140330044,
+      "reasons": [
+        "Z-score: 1071.83"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 25970747351.32,
+      "score": 1062.8215860538169,
+      "reasons": [
+        "Z-score: 1062.02",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 2020628026922.11,
+      "score": 1062.021586053817,
+      "reasons": [
+        "Z-score: 1062.02"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 1043.402011075734,
+      "reasons": [
+        "Z-score: 1042.60",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 1042.602011075734,
+      "reasons": [
+        "Z-score: 1042.60"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1934853076876.59,
+      "amount_paid": 1934853076876.59,
+      "score": 1041.6060526823094,
+      "reasons": [
+        "Z-score: 1041.61"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 25970747351.32,
+      "score": 1028.9499352446198,
+      "reasons": [
+        "Z-score: 1028.15",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2020628026922.11,
+      "amount_paid": 2020628026922.11,
+      "score": 1028.1499352446199,
+      "reasons": [
+        "Z-score: 1028.15"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 1027.174253204393,
+      "reasons": [
+        "Z-score: 1026.37",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 1026.374253204393,
+      "reasons": [
+        "Z-score: 1026.37"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 993.3780489840759,
+      "reasons": [
+        "Z-score: 992.58",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 992.578048984076,
+      "reasons": [
+        "Z-score: 992.58"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 954.2447474347566,
+      "reasons": [
+        "Z-score: 953.44",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 953.4447474347567,
+      "reasons": [
+        "Z-score: 953.44"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1693321076880.88,
+      "amount_paid": 1693321076880.88,
+      "score": 910.6370363069873,
+      "reasons": [
+        "Z-score: 910.64"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 855.424376439735,
+      "reasons": [
+        "Z-score: 854.62",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 854.6243764397351,
+      "reasons": [
+        "Z-score: 854.62"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 20115986067.69,
+      "score": 852.7813271911257,
+      "reasons": [
+        "Z-score: 851.98",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 1565104180010.58,
+      "score": 851.9813271911257,
+      "reasons": [
+        "Z-score: 851.98"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 20115986067.69,
+      "score": 845.2505498143232,
+      "reasons": [
+        "Z-score: 844.45",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 1565104180010.58,
+      "score": 844.4505498143233,
+      "reasons": [
+        "Z-score: 844.45"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 841.0234169281655,
+      "reasons": [
+        "Z-score: 840.22",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 840.2234169281655,
+      "reasons": [
+        "Z-score: 840.22"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 20845222830.58,
+      "score": 833.7357358931004,
+      "reasons": [
+        "Z-score: 832.94",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 1530956545568.96,
+      "score": 832.9357358931004,
+      "reasons": [
+        "Z-score: 832.94"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 20845222830.58,
+      "score": 831.4650659059346,
+      "reasons": [
+        "Z-score: 830.67",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 20115986067.69,
+      "score": 831.0003739066563,
+      "reasons": [
+        "Z-score: 830.20",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 1530956545568.96,
+      "score": 830.6650659059346,
+      "reasons": [
+        "Z-score: 830.67"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 1565104180010.58,
+      "score": 830.2003739066563,
+      "reasons": [
+        "Z-score: 830.20"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 20115986067.69,
+      "score": 823.4021507272944,
+      "reasons": [
+        "Z-score: 822.60",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 1565104180010.58,
+      "score": 822.6021507272944,
+      "reasons": [
+        "Z-score: 822.60"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 20845222830.58,
+      "score": 819.9122854895925,
+      "reasons": [
+        "Z-score: 819.11",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 1530956545568.96,
+      "score": 819.1122854895925,
+      "reasons": [
+        "Z-score: 819.11"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 20845222830.58,
+      "score": 813.6626302107735,
+      "reasons": [
+        "Z-score: 812.86",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 1530956545568.96,
+      "score": 812.8626302107735,
+      "reasons": [
+        "Z-score: 812.86"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 20115986067.69,
+      "score": 797.1664647688293,
+      "reasons": [
+        "Z-score: 796.37",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1491798839598.83,
+      "amount_paid": 1491798839598.83,
+      "score": 796.9227915281127,
+      "reasons": [
+        "Z-score: 796.92"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 19413284801.82,
+      "score": 796.6970296843774,
+      "reasons": [
+        "Z-score: 795.90",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1565104180010.58,
+      "amount_paid": 1565104180010.58,
+      "score": 796.3664647688294,
+      "reasons": [
+        "Z-score: 796.37"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 2046160218111.4,
+      "amount_paid": 2046160218111.4,
+      "score": 795.8970296843775,
+      "reasons": [
+        "Z-score: 795.90"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 20845222830.58,
+      "score": 790.5729797915566,
+      "reasons": [
+        "Z-score: 789.77",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1530956545568.96,
+      "amount_paid": 1530956545568.96,
+      "score": 789.7729797915566,
+      "reasons": [
+        "Z-score: 789.77"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1545627489361.89,
+      "amount_paid": 1545627489361.89,
+      "score": 779.9569458513112,
+      "reasons": [
+        "Z-score: 779.96"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1426973433579.9,
+      "amount_paid": 1426973433579.9,
+      "score": 777.959882175215,
+      "reasons": [
+        "Z-score: 777.96"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 517970256235.0,
+      "amount_paid": 517970256235.0,
+      "score": 759.864782927258,
+      "reasons": [
+        "Z-score: 758.86",
+        "Top 5% amount"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 16696921764.86,
+      "score": 710.638892205447,
+      "reasons": [
+        "Z-score: 709.84",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 1299087300993.41,
+      "score": 709.838892205447,
+      "reasons": [
+        "Z-score: 709.84"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1335134603253.16,
+      "amount_paid": 1335134603253.16,
+      "score": 707.3314821555541,
+      "reasons": [
+        "Z-score: 707.33"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 17722130095.86,
+      "score": 706.2686558514379,
+      "reasons": [
+        "Z-score: 705.47",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 16696921764.86,
+      "score": 705.8964244452243,
+      "reasons": [
+        "Z-score: 705.10",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 1301584122760.46,
+      "score": 705.4686558514379,
+      "reasons": [
+        "Z-score: 705.47"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 1299087300993.41,
+      "score": 705.0964244452243,
+      "reasons": [
+        "Z-score: 705.10"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 17722130095.86,
+      "score": 702.3681697896038,
+      "reasons": [
+        "Z-score: 701.57",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 1301584122760.46,
+      "score": 701.5681697896039,
+      "reasons": [
+        "Z-score: 701.57"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 17722130095.86,
+      "score": 698.6377237945735,
+      "reasons": [
+        "Z-score: 697.84",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 1301584122760.46,
+      "score": 697.8377237945735,
+      "reasons": [
+        "Z-score: 697.84"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 16696921764.86,
+      "score": 693.828259456425,
+      "reasons": [
+        "Z-score: 693.03",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 17722130095.86,
+      "score": 693.5548624328435,
+      "reasons": [
+        "Z-score: 692.75",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 1299087300993.41,
+      "score": 693.0282594564251,
+      "reasons": [
+        "Z-score: 693.03"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 1301584122760.46,
+      "score": 692.7548624328435,
+      "reasons": [
+        "Z-score: 692.75"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 16696921764.86,
+      "score": 688.1785916358419,
+      "reasons": [
+        "Z-score: 687.38",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 1299087300993.41,
+      "score": 687.378591635842,
+      "reasons": [
+        "Z-score: 687.38"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1452213214280.55,
+      "amount_paid": 1452213214280.55,
+      "score": 686.7911630196011,
+      "reasons": [
+        "Z-score: 686.79"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1268691833955.27,
+      "amount_paid": 1268691833955.27,
+      "score": 676.4050623127038,
+      "reasons": [
+        "Z-score: 676.41"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 16696921764.86,
+      "score": 668.3641649635514,
+      "reasons": [
+        "Z-score: 667.56",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1299087300993.41,
+      "amount_paid": 1299087300993.41,
+      "score": 667.5641649635514,
+      "reasons": [
+        "Z-score: 667.56"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 17722130095.86,
+      "score": 663.459957732063,
+      "reasons": [
+        "Z-score: 662.66",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1301584122760.46,
+      "amount_paid": 1301584122760.46,
+      "score": 662.659957732063,
+      "reasons": [
+        "Z-score: 662.66"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 15189510323.55,
+      "score": 646.5537559200567,
+      "reasons": [
+        "Z-score: 645.75",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 1181804661213.11,
+      "score": 645.7537559200567,
+      "reasons": [
+        "Z-score: 645.75"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 15189510323.55,
+      "score": 642.2394394398054,
+      "reasons": [
+        "Z-score: 641.44",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 1181804661213.11,
+      "score": 641.4394394398055,
+      "reasons": [
+        "Z-score: 641.44"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1171620439061.67,
+      "amount_paid": 1171620439061.67,
+      "score": 636.1241891600299,
+      "reasons": [
+        "Z-score: 636.12"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1507736349805.1,
+      "amount_paid": 1507736349805.1,
+      "score": 632.204153528276,
+      "reasons": [
+        "Z-score: 632.20"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 15189510323.55,
+      "score": 631.2608113063487,
+      "reasons": [
+        "Z-score: 630.46",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 1181804661213.11,
+      "score": 630.4608113063488,
+      "reasons": [
+        "Z-score: 630.46"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 15189510323.55,
+      "score": 626.121212611641,
+      "reasons": [
+        "Z-score: 625.32",
+        "High deviation",
+        "Currency mismatch"
+      ],
+      "is_laundering": 0
+    },
+    {
+      "amount_received": 1181804661213.11,
+      "amount_paid": 1181804661213.11,
+      "score": 625.321212611641,
+      "reasons": [
+        "Z-score: 625.32"
+      ],
+      "is_laundering": 0
+    }
+  ]
+}
