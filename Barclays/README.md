@@ -73,7 +73,45 @@
 
 ---
 
-## 📋 Prerequisites
+## ⚡ Quick Start (30 minutes)
+
+**For users cloning from GitHub:**
+
+```bash
+# 1. Install required software
+winget install Node.js Python PostgreSQL
+
+# 2. Clone repository
+git clone https://github.com/Anish-1910/InteliSAR.git
+cd InteliSAR
+
+# 3. Create .env file from template
+# Copy the contents from "Step 2" below and create .env
+
+# 4. Setup database
+$env:PGPASSWORD='anish@123'
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -d aml_fraud_detection -f insert_test_alerts.sql
+
+# 5. Install dependencies
+pip install -r requirements.txt
+npm install
+cd frontend && npm install && cd ..
+
+# 6. Start system (use 3 terminals)
+# Terminal 1:
+python ml_service_wrapper.py
+
+# Terminal 2:
+npm start
+
+# Terminal 3:
+cd frontend && npm start
+
+# 7. Open browser
+# Visit http://localhost:3001
+```
+
+---
 
 Before starting, ensure you have:
 
@@ -125,9 +163,9 @@ $env:PGPASSWORD='anish@123'
 
 ### Step 2: Update Environment Configuration
 
-Edit `.env` file in root directory:
+Edit `.env` file in root directory with your credentials:
 ```bash
-# DATABASE
+# DATABASE CONFIGURATION
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=aml_fraud_detection
@@ -137,15 +175,42 @@ DB_PASSWORD=anish@123
 # ML SERVICE
 ML_SERVICE_URL=http://localhost:5000
 
+# GROQ API (for SAR Generation)
+GROQ_API_KEY=your-groq-api-key-here
+
 # FRONTEND (optional)
 REACT_APP_API_URL=http://localhost:3000
 ```
 
+**Environment Variables Explained:**
+- `DB_HOST`: PostgreSQL server address (use `localhost` for local installation)
+- `DB_PORT`: PostgreSQL port (default: 5432)
+- `DB_NAME`: Database name (must be `aml_fraud_detection`)
+- `DB_USER`: PostgreSQL username (default: `postgres`)
+- `DB_PASSWORD`: PostgreSQL password (set during installation)
+- `ML_SERVICE_URL`: ML service endpoint (runs on port 5000)
+- `GROQ_API_KEY`: Get from https://console.groq.com (optional, uses fallback template if not provided)
+- `REACT_APP_API_URL`: Backend API URL for frontend calls
+
 ### Step 3: Install Python Dependencies
 
 ```bash
-pip install psycopg2-binary
+pip install -r requirements.txt
 ```
+
+**Python Requirements:**
+```txt
+psycopg2-binary==2.9.9
+flask==3.0.0
+requests==2.31.0
+python-dotenv==1.0.0
+```
+
+These packages are required for:
+- `psycopg2-binary`: PostgreSQL database connection
+- `flask`: ML service REST API
+- `requests`: HTTP requests for external services
+- `python-dotenv`: Load environment variables from .env file
 
 ### Step 4: Install Frontend Dependencies
 
@@ -463,17 +528,27 @@ The system comes with 5 pre-loaded suspicious alerts:
 
 ## 🔐 Security Notes
 
-1. **API Key**: Groq LLM API key stored in code (demo only)
-   - For production: Use environment variables, secrets management
-   
-2. **Database**: Plain text password in .env (demo only)
-   - For production: Use encrypted connections, secret vaults
+1. **Environment Variables**: 
+   - Copy `.env` template to `.env` and fill in your actual credentials
+   - Never commit `.env` to version control (included in .gitignore)
+   - For production: Use encrypted secrets management (AWS Secrets Manager, HashiCorp Vault, etc.)
 
-3. **CORS**: Enabled for localhost:3001 only
-   - For production: Restrict to your domain
+2. **Groq API Key**: 
+   - Get free API key from https://console.groq.com
+   - Set in `.env` file: `GROQ_API_KEY=your-key-here`
+   - Falls back to template-based SAR generation if not provided
 
-4. **Frontend**: No authentication (demo only)
-   - For production: Implement OAuth2, JWT, role-based access
+3. **Database**: 
+   - Plain text password in .env (demo only)
+   - For production: Use encrypted connections, secret vaults, password rotation
+
+4. **CORS**: 
+   - Enabled for localhost:3001 only
+   - For production: Restrict to your domain only
+
+5. **Frontend**: 
+   - No authentication (demo only)
+   - For production: Implement OAuth2, JWT, role-based access control
 
 ---
 
