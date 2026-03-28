@@ -256,11 +256,11 @@ SELECT
     a.account_id,
     a.customer_name,
     COUNT(t.transaction_id) as transaction_count,
-    SUM(CASE WHEN t.is_suspicious THEN 1 ELSE 0 END) as suspicious_count,
-    AVG(t.confidence_score) as avg_confidence,
+    COUNT(DISTINCT al.alert_id) as alert_count,
     MAX(t.timestamp) as latest_transaction
 FROM accounts a
 LEFT JOIN transactions t ON a.account_id = t.account_id
+LEFT JOIN alerts al ON t.transaction_id = al.transaction_id
 WHERE a.kyc_status = 'FLAGGED' 
    OR a.pep_status = true
    OR a.high_risk_country = true
@@ -446,7 +446,7 @@ GRANT USAGE ON SCHEMA public TO barclays_app;
 
 -- Grant table permissions
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO barclays_app;
-GRANT SEQUENCE ON ALL SEQUENCES IN SCHEMA public TO barclays_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO barclays_app;
 
 -- Grant view permissions
 GRANT SELECT ON ALL VIEWS IN SCHEMA public TO barclays_app;
