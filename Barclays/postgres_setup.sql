@@ -46,15 +46,8 @@ CREATE TABLE transactions (
     payment_currency VARCHAR(3),
     payment_format VARCHAR(100),      -- ACH, WIRE, CARD, CHECK, etc.
     
-    -- ML Model Predictions
-    confidence_score INT DEFAULT 0,                    -- 1-100 scale
-    is_suspicious BOOLEAN DEFAULT false,               -- Boolean flag
-    risk_level VARCHAR(50),                            -- MINIMAL, LOW, MEDIUM, HIGH, CRITICAL
-    ml_processed BOOLEAN DEFAULT false,                -- Flag to track processing
-    processing_timestamp TIMESTAMP,
-    
     -- Alert Linkage
-    alert_id VARCHAR(255),
+    alert_id VARCHAR(255) REFERENCES alerts(alert_id) ON DELETE SET NULL,
     
     -- Metadata
     created_at TIMESTAMP DEFAULT NOW(),
@@ -62,7 +55,24 @@ CREATE TABLE transactions (
 );
 
 -- ============================================================================
--- 3. ALERTS TABLE
+-- 3. ML PREDICTIONS TABLE
+-- ============================================================================
+CREATE TABLE ml_predictions (
+    prediction_id SERIAL PRIMARY KEY,
+    account_id VARCHAR(255) NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
+    transaction_id VARCHAR(255) NOT NULL REFERENCES transactions(transaction_id) ON DELETE CASCADE,
+    
+    -- Prediction Details
+    rule_violated VARCHAR(255) NOT NULL,              -- Pattern name (e.g., 'Sudden Spike', 'Structuring/Smurfing')
+    score INT NOT NULL,                               -- Confidence score 1-100
+    
+    -- Metadata
+    prediction_timestamp TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 4. ALERTS TABLE
 -- ============================================================================
 CREATE TABLE alerts (
     alert_id VARCHAR(255) PRIMARY KEY,
@@ -95,7 +105,36 @@ CREATE TABLE alerts (
 );
 
 -- ============================================================================
--- 4. AUDIT LOG TABLE
+-- 5. VERSION LOG TABLE (SAR Report Edit Tracking)
+-- ============================================================================
+CREATE TABLE version_log (
+    version_id SERIAL PRIMARY KEY,
+    alert_id VARCHAR(255) NOT NULL REFERENCES alerts(alert_id) ON DELETE CASCADE,
+    
+    -- User Information
+    analyst_id VARCHAR(255) NOT NULL,                 -- ID of analyst/admin making changes
+    analyst_name VARCHAR(255),                        -- Name of analyst/admin for easy reference
+    role VARCHAR(50),                                 -- ANALYST, ADMIN, REVIEWER, etc.
+    
+    -- Change Details
+    version_number INT NOT NULL,                      -- Version number (1, 2, 3, etc.)
+    field_changed VARCHAR(255),                       -- Which field was changed (e.g., 'narrative', 'findings', 'status')
+    old_value TEXT,                                   -- Previous value
+    new_value TEXT,                                   -- New value
+    change_description TEXT,                          -- Human-readable description of change
+    
+    -- Additional Context
+    change_type VARCHAR(50),                          -- ADDED, MODIFIED, DELETED, APPROVED, REJECTED
+    sar_status_before VARCHAR(50),                    -- SAR status before change (DRAFT, PENDING, APPROVED, etc.)
+    sar_status_after VARCHAR(50),                     -- SAR status after change
+    
+    -- Metadata
+    change_timestamp TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 6. AUDIT LOG TABLE
 -- ============================================================================
 CREATE TABLE audit_log (
     log_id SERIAL PRIMARY KEY,
@@ -111,7 +150,37 @@ CREATE TABLE audit_log (
 );
 
 -- ============================================================================
--- 5. MODEL METRICS TABLE (for monitoring)
+-- 7. LOGIN LOG TABLE (User Access Tracking)
+-- ============================================================================
+CREATE TABLE login_log (
+    login_id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,                     -- Analyst or system user ID
+    username VARCHAR(255) NOT NULL,                    -- Username for easy reference
+    role VARCHAR(50),                                  -- ANALYST, ADMIN, REVIEWER, SYSTEM
+    
+    -- Login Details
+    login_timestamp TIMESTAMP DEFAULT NOW(),           -- When user logged in
+    logout_timestamp TIMESTAMP,                        -- When user logged out (nullable)
+    session_id VARCHAR(255) NOT NULL UNIQUE,           -- Unique session identifier
+    session_duration_seconds INT,                      -- Duration in seconds (calculated on logout)
+    
+    -- Security Details
+    ip_address VARCHAR(45),                            -- IPv4 or IPv6 address
+    user_agent TEXT,                                   -- Browser/client information
+    device_type VARCHAR(50),                           -- WEB, MOBILE, API, DESKTOP
+    location VARCHAR(255),                             -- Geolocation if available
+    
+    -- Login Status
+    login_status VARCHAR(50) NOT NULL DEFAULT 'SUCCESS',  -- SUCCESS, FAILED, TIMEOUT
+    failure_reason VARCHAR(255),                       -- Reason if login failed
+    failed_attempts_before_this INT DEFAULT 0,         -- Number of failed attempts before success
+    
+    -- Metadata
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 8. MODEL METRICS TABLE (for monitoring)
 -- ============================================================================
 CREATE TABLE model_metrics (
     metric_id SERIAL PRIMARY KEY,
@@ -140,7 +209,7 @@ CREATE TABLE model_metrics (
 );
 
 -- ============================================================================
--- 6. PATTERN DEFINITIONS TABLE
+-- 9. PATTERN DEFINITIONS TABLE
 -- ============================================================================
 CREATE TABLE pattern_definitions (
     pattern_id SERIAL PRIMARY KEY,
@@ -168,15 +237,12 @@ INSERT INTO pattern_definitions (pattern_name, pattern_description, weight) VALU
     ('Circular Transactions', 'Round-trip money movement between accounts', 0.12);
 
 -- ============================================================================
--- 7. INDEXES FOR PERFORMANCE
+-- 10. INDEXES FOR PERFORMANCE
 -- ============================================================================
 
 -- Transactions indexes
 CREATE INDEX idx_transactions_account_id ON transactions(account_id);
 CREATE INDEX idx_transactions_timestamp ON transactions(timestamp DESC);
-CREATE INDEX idx_transactions_ml_processed ON transactions(ml_processed);
-CREATE INDEX idx_transactions_is_suspicious ON transactions(is_suspicious);
-CREATE INDEX idx_transactions_confidence ON transactions(confidence_score DESC);
 CREATE INDEX idx_transactions_alert_id ON transactions(alert_id);
 
 -- Alerts indexes
@@ -187,6 +253,21 @@ CREATE INDEX idx_alerts_alert_timestamp ON alerts(alert_timestamp DESC);
 CREATE INDEX idx_alerts_confidence ON alerts(confidence_score DESC);
 CREATE INDEX idx_alerts_risk_level ON alerts(risk_level);
 
+-- ML Predictions indexes
+CREATE INDEX idx_ml_predictions_account_id ON ml_predictions(account_id);
+CREATE INDEX idx_ml_predictions_transaction_id ON ml_predictions(transaction_id);
+CREATE INDEX idx_ml_predictions_score ON ml_predictions(score DESC);
+CREATE INDEX idx_ml_predictions_rule_violated ON ml_predictions(rule_violated);
+CREATE INDEX idx_ml_predictions_timestamp ON ml_predictions(prediction_timestamp DESC);
+
+-- Version Log indexes
+CREATE INDEX idx_version_log_alert_id ON version_log(alert_id);
+CREATE INDEX idx_version_log_analyst_id ON version_log(analyst_id);
+CREATE INDEX idx_version_log_version_number ON version_log(alert_id, version_number DESC);
+CREATE INDEX idx_version_log_change_type ON version_log(change_type);
+CREATE INDEX idx_version_log_timestamp ON version_log(change_timestamp DESC);
+CREATE INDEX idx_version_log_field_changed ON version_log(field_changed);
+
 -- Audit log indexes
 CREATE INDEX idx_audit_log_transaction_id ON audit_log(transaction_id);
 CREATE INDEX idx_audit_log_alert_id ON audit_log(alert_id);
@@ -195,8 +276,16 @@ CREATE INDEX idx_audit_log_timestamp ON audit_log(change_timestamp DESC);
 -- Model metrics indexes
 CREATE INDEX idx_model_metrics_date ON model_metrics(metric_date DESC);
 
+-- Login log indexes
+CREATE INDEX idx_login_log_user_id ON login_log(user_id);
+CREATE INDEX idx_login_log_username ON login_log(username);
+CREATE INDEX idx_login_log_login_timestamp ON login_log(login_timestamp DESC);
+CREATE INDEX idx_login_log_session_id ON login_log(session_id);
+CREATE INDEX idx_login_log_status ON login_log(login_status);
+CREATE INDEX idx_login_log_ip_address ON login_log(ip_address);
+
 -- ============================================================================
--- 8. VIEWS FOR COMMON QUERIES
+-- 11. VIEWS FOR COMMON QUERIES
 -- ============================================================================
 
 -- High-risk accounts view
@@ -205,11 +294,11 @@ SELECT
     a.account_id,
     a.customer_name,
     COUNT(t.transaction_id) as transaction_count,
-    SUM(CASE WHEN t.is_suspicious THEN 1 ELSE 0 END) as suspicious_count,
-    AVG(t.confidence_score) as avg_confidence,
+    COUNT(DISTINCT al.alert_id) as alert_count,
     MAX(t.timestamp) as latest_transaction
 FROM accounts a
 LEFT JOIN transactions t ON a.account_id = t.account_id
+LEFT JOIN alerts al ON t.transaction_id = al.transaction_id
 WHERE a.kyc_status = 'FLAGGED' 
    OR a.pep_status = true
    OR a.high_risk_country = true
@@ -232,8 +321,24 @@ JOIN accounts a ON al.account_id = a.account_id
 WHERE al.status = 'NEW'
 ORDER BY al.confidence_score DESC, al.alert_timestamp DESC;
 
+-- SAR Version History view
+CREATE VIEW sar_version_history AS
+SELECT 
+    vl.alert_id,
+    vl.version_number,
+    vl.analyst_name,
+    vl.role,
+    vl.field_changed,
+    vl.change_type,
+    vl.change_timestamp,
+    vl.sar_status_before,
+    vl.sar_status_after,
+    ROW_NUMBER() OVER (PARTITION BY vl.alert_id ORDER BY vl.version_number DESC) as latest_change_rank
+FROM version_log vl
+ORDER BY vl.alert_id, vl.version_number DESC;
+
 -- ============================================================================
--- 9. FUNCTIONS FOR COMMON OPERATIONS
+-- 12. FUNCTIONS FOR COMMON OPERATIONS
 -- ============================================================================
 
 -- Function to create a new alert
@@ -294,8 +399,161 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to log SAR report edits (Version Control)
+CREATE OR REPLACE FUNCTION log_sar_edit(
+    p_alert_id VARCHAR(255),
+    p_analyst_id VARCHAR(255),
+    p_analyst_name VARCHAR(255),
+    p_role VARCHAR(50),
+    p_field_changed VARCHAR(255),
+    p_old_value TEXT,
+    p_new_value TEXT,
+    p_change_description TEXT,
+    p_change_type VARCHAR(50),
+    p_sar_status_before VARCHAR(50),
+    p_sar_status_after VARCHAR(50)
+)
+RETURNS INT AS $$
+DECLARE
+    v_version_number INT;
+BEGIN
+    -- Get the next version number for this alert
+    SELECT COALESCE(MAX(version_number), 0) + 1 INTO v_version_number
+    FROM version_log
+    WHERE alert_id = p_alert_id;
+    
+    -- Insert the version log entry
+    INSERT INTO version_log (
+        alert_id, analyst_id, analyst_name, role, version_number,
+        field_changed, old_value, new_value, change_description,
+        change_type, sar_status_before, sar_status_after
+    ) VALUES (
+        p_alert_id, p_analyst_id, p_analyst_name, p_role, v_version_number,
+        p_field_changed, p_old_value, p_new_value, p_change_description,
+        p_change_type, p_sar_status_before, p_sar_status_after
+    );
+    
+    -- Log to audit table
+    INSERT INTO audit_log (alert_id, action_type, old_values, new_values, changed_by)
+    VALUES (p_alert_id, 'SAR_EDITED', 
+            jsonb_build_object('field', p_field_changed, 'old_value', p_old_value),
+            jsonb_build_object('field', p_field_changed, 'new_value', p_new_value),
+            p_analyst_id);
+    
+    RETURN v_version_number;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get SAR edit history
+CREATE OR REPLACE FUNCTION get_sar_edit_history(p_alert_id VARCHAR(255))
+RETURNS TABLE(
+    version_id INT,
+    version_number INT,
+    analyst_name VARCHAR(255),
+    field_changed VARCHAR(255),
+    change_type VARCHAR(50),
+    change_timestamp TIMESTAMP,
+    sar_status_before VARCHAR(50),
+    sar_status_after VARCHAR(50)
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        vl.version_id,
+        vl.version_number,
+        vl.analyst_name,
+        vl.field_changed,
+        vl.change_type,
+        vl.change_timestamp,
+        vl.sar_status_before,
+        vl.sar_status_after
+    FROM version_log vl
+    WHERE vl.alert_id = p_alert_id
+    ORDER BY vl.version_number DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to log user login
+CREATE OR REPLACE FUNCTION log_user_login(
+    p_user_id VARCHAR(255),
+    p_username VARCHAR(255),
+    p_role VARCHAR(50),
+    p_ip_address VARCHAR(45),
+    p_user_agent TEXT,
+    p_device_type VARCHAR(50),
+    p_location VARCHAR(255),
+    p_login_status VARCHAR(50) DEFAULT 'SUCCESS',
+    p_failure_reason VARCHAR(255) DEFAULT NULL,
+    p_failed_attempts INT DEFAULT 0
+)
+RETURNS VARCHAR(255) AS $$
+DECLARE
+    v_session_id VARCHAR(255);
+BEGIN
+    -- Generate unique session ID
+    v_session_id := 'SESSION_' || TO_CHAR(NOW(), 'YYYY-MM-DD-HH24-MI-SS-US') || '_' || 
+                    SUBSTR(MD5(p_user_id || RANDOM()::TEXT), 1, 12);
+    
+    -- Insert the login record
+    INSERT INTO login_log (
+        user_id, username, role, ip_address, user_agent, device_type, location,
+        session_id, login_status, failure_reason, failed_attempts_before_this
+    ) VALUES (
+        p_user_id, p_username, p_role, p_ip_address, p_user_agent, p_device_type, p_location,
+        v_session_id, p_login_status, p_failure_reason, p_failed_attempts
+    );
+    
+    -- Log to audit table (successful logins only)
+    IF p_login_status = 'SUCCESS' THEN
+        INSERT INTO audit_log (action_type, new_values, changed_by)
+        VALUES ('USER_LOGIN', 
+                jsonb_build_object('user_id', p_user_id, 'username', p_username, 'ip_address', p_ip_address, 'device_type', p_device_type),
+                p_user_id);
+    END IF;
+    
+    RETURN v_session_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to log user logout
+CREATE OR REPLACE FUNCTION log_user_logout(p_session_id VARCHAR(255))
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_user_id VARCHAR(255);
+    v_login_time TIMESTAMP;
+    v_duration_seconds INT;
+BEGIN
+    -- Get the login record
+    SELECT user_id, login_timestamp INTO v_user_id, v_login_time
+    FROM login_log
+    WHERE session_id = p_session_id AND logout_timestamp IS NULL
+    LIMIT 1;
+    
+    IF v_user_id IS NULL THEN
+        RETURN FALSE;  -- Session not found or already logged out
+    END IF;
+    
+    -- Calculate session duration in seconds
+    v_duration_seconds := EXTRACT(EPOCH FROM (NOW() - v_login_time))::INT;
+    
+    -- Update the login record with logout info
+    UPDATE login_log
+    SET logout_timestamp = NOW(),
+        session_duration_seconds = v_duration_seconds
+    WHERE session_id = p_session_id;
+    
+    -- Log to audit table
+    INSERT INTO audit_log (action_type, new_values, changed_by)
+    VALUES ('USER_LOGOUT', 
+            jsonb_build_object('user_id', v_user_id, 'session_duration_seconds', v_duration_seconds),
+            v_user_id);
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================================
--- 10. PERMISSIONS (Optional - Create application user)
+-- 13. PERMISSIONS (Optional - Create application user)
 -- ============================================================================
 
 CREATE USER barclays_app WITH PASSWORD 'change_me_to_secure_password';
@@ -305,7 +563,7 @@ GRANT USAGE ON SCHEMA public TO barclays_app;
 
 -- Grant table permissions
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO barclays_app;
-GRANT SEQUENCE ON ALL SEQUENCES IN SCHEMA public TO barclays_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO barclays_app;
 
 -- Grant view permissions
 GRANT SELECT ON ALL VIEWS IN SCHEMA public TO barclays_app;
@@ -315,6 +573,15 @@ GRANT SELECT ON ALL VIEWS IN SCHEMA public TO barclays_app;
 -- ============================================================================
 -- Your PostgreSQL database is now ready!
 -- 
+-- Features Included:
+--   • 9 tables for accounts, transactions, alerts, and fraud detection
+--   • ML predictions tracking in separate table for clean architecture
+--   • SAR report version control with full edit history
+--   • User login/logout tracking for security audit trail
+--   • 30+ performance indexes for query optimization
+--   • PL/pgSQL functions for alerts, SAR edits, and login tracking
+--   • 13 configurable fraud detection patterns
+--
 -- Next steps:
 -- 1. Connect to your database: psql -U postgres -d barclays_aml
 -- 2. Verify tables: \dt
@@ -325,4 +592,7 @@ GRANT SELECT ON ALL VIEWS IN SCHEMA public TO barclays_app;
 --    - Host: localhost (or your server)
 --    - Port: 5432
 --    - Database: barclays_aml
+-- 
+-- Important: Backend must call log_user_login() and log_user_logout() functions
+--            when users authenticate to maintain complete access audit trail
 -- ============================================================================
