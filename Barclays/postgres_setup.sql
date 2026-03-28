@@ -105,7 +105,36 @@ CREATE TABLE alerts (
 );
 
 -- ============================================================================
--- 5. AUDIT LOG TABLE
+-- 5. VERSION LOG TABLE (SAR Report Edit Tracking)
+-- ============================================================================
+CREATE TABLE version_log (
+    version_id SERIAL PRIMARY KEY,
+    alert_id VARCHAR(255) NOT NULL REFERENCES alerts(alert_id) ON DELETE CASCADE,
+    
+    -- User Information
+    analyst_id VARCHAR(255) NOT NULL,                 -- ID of analyst/admin making changes
+    analyst_name VARCHAR(255),                        -- Name of analyst/admin for easy reference
+    role VARCHAR(50),                                 -- ANALYST, ADMIN, REVIEWER, etc.
+    
+    -- Change Details
+    version_number INT NOT NULL,                      -- Version number (1, 2, 3, etc.)
+    field_changed VARCHAR(255),                       -- Which field was changed (e.g., 'narrative', 'findings', 'status')
+    old_value TEXT,                                   -- Previous value
+    new_value TEXT,                                   -- New value
+    change_description TEXT,                          -- Human-readable description of change
+    
+    -- Additional Context
+    change_type VARCHAR(50),                          -- ADDED, MODIFIED, DELETED, APPROVED, REJECTED
+    sar_status_before VARCHAR(50),                    -- SAR status before change (DRAFT, PENDING, APPROVED, etc.)
+    sar_status_after VARCHAR(50),                     -- SAR status after change
+    
+    -- Metadata
+    change_timestamp TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 6. AUDIT LOG TABLE
 -- ============================================================================
 CREATE TABLE audit_log (
     log_id SERIAL PRIMARY KEY,
@@ -121,7 +150,7 @@ CREATE TABLE audit_log (
 );
 
 -- ============================================================================
--- 6. MODEL METRICS TABLE (for monitoring)
+-- 7. MODEL METRICS TABLE (for monitoring)
 -- ============================================================================
 CREATE TABLE model_metrics (
     metric_id SERIAL PRIMARY KEY,
@@ -150,7 +179,7 @@ CREATE TABLE model_metrics (
 );
 
 -- ============================================================================
--- 7. PATTERN DEFINITIONS TABLE
+-- 8. PATTERN DEFINITIONS TABLE
 -- ============================================================================
 CREATE TABLE pattern_definitions (
     pattern_id SERIAL PRIMARY KEY,
@@ -178,7 +207,7 @@ INSERT INTO pattern_definitions (pattern_name, pattern_description, weight) VALU
     ('Circular Transactions', 'Round-trip money movement between accounts', 0.12);
 
 -- ============================================================================
--- 8. INDEXES FOR PERFORMANCE
+-- 9. INDEXES FOR PERFORMANCE
 -- ============================================================================
 
 -- Transactions indexes
@@ -201,6 +230,14 @@ CREATE INDEX idx_ml_predictions_score ON ml_predictions(score DESC);
 CREATE INDEX idx_ml_predictions_rule_violated ON ml_predictions(rule_violated);
 CREATE INDEX idx_ml_predictions_timestamp ON ml_predictions(prediction_timestamp DESC);
 
+-- Version Log indexes
+CREATE INDEX idx_version_log_alert_id ON version_log(alert_id);
+CREATE INDEX idx_version_log_analyst_id ON version_log(analyst_id);
+CREATE INDEX idx_version_log_version_number ON version_log(alert_id, version_number DESC);
+CREATE INDEX idx_version_log_change_type ON version_log(change_type);
+CREATE INDEX idx_version_log_timestamp ON version_log(change_timestamp DESC);
+CREATE INDEX idx_version_log_field_changed ON version_log(field_changed);
+
 -- Audit log indexes
 CREATE INDEX idx_audit_log_transaction_id ON audit_log(transaction_id);
 CREATE INDEX idx_audit_log_alert_id ON audit_log(alert_id);
@@ -210,7 +247,7 @@ CREATE INDEX idx_audit_log_timestamp ON audit_log(change_timestamp DESC);
 CREATE INDEX idx_model_metrics_date ON model_metrics(metric_date DESC);
 
 -- ============================================================================
--- 9. VIEWS FOR COMMON QUERIES
+-- 10. VIEWS FOR COMMON QUERIES
 -- ============================================================================
 
 -- High-risk accounts view
@@ -246,8 +283,24 @@ JOIN accounts a ON al.account_id = a.account_id
 WHERE al.status = 'NEW'
 ORDER BY al.confidence_score DESC, al.alert_timestamp DESC;
 
+-- SAR Version History view
+CREATE VIEW sar_version_history AS
+SELECT 
+    vl.alert_id,
+    vl.version_number,
+    vl.analyst_name,
+    vl.role,
+    vl.field_changed,
+    vl.change_type,
+    vl.change_timestamp,
+    vl.sar_status_before,
+    vl.sar_status_after,
+    ROW_NUMBER() OVER (PARTITION BY vl.alert_id ORDER BY vl.version_number DESC) as latest_change_rank
+FROM version_log vl
+ORDER BY vl.alert_id, vl.version_number DESC;
+
 -- ============================================================================
--- 10. FUNCTIONS FOR COMMON OPERATIONS
+-- 11. FUNCTIONS FOR COMMON OPERATIONS
 -- ============================================================================
 
 -- Function to create a new alert
@@ -308,8 +361,82 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to log SAR report edits (Version Control)
+CREATE OR REPLACE FUNCTION log_sar_edit(
+    p_alert_id VARCHAR(255),
+    p_analyst_id VARCHAR(255),
+    p_analyst_name VARCHAR(255),
+    p_role VARCHAR(50),
+    p_field_changed VARCHAR(255),
+    p_old_value TEXT,
+    p_new_value TEXT,
+    p_change_description TEXT,
+    p_change_type VARCHAR(50),
+    p_sar_status_before VARCHAR(50),
+    p_sar_status_after VARCHAR(50)
+)
+RETURNS INT AS $$
+DECLARE
+    v_version_number INT;
+BEGIN
+    -- Get the next version number for this alert
+    SELECT COALESCE(MAX(version_number), 0) + 1 INTO v_version_number
+    FROM version_log
+    WHERE alert_id = p_alert_id;
+    
+    -- Insert the version log entry
+    INSERT INTO version_log (
+        alert_id, analyst_id, analyst_name, role, version_number,
+        field_changed, old_value, new_value, change_description,
+        change_type, sar_status_before, sar_status_after
+    ) VALUES (
+        p_alert_id, p_analyst_id, p_analyst_name, p_role, v_version_number,
+        p_field_changed, p_old_value, p_new_value, p_change_description,
+        p_change_type, p_sar_status_before, p_sar_status_after
+    );
+    
+    -- Log to audit table
+    INSERT INTO audit_log (alert_id, action_type, old_values, new_values, changed_by)
+    VALUES (p_alert_id, 'SAR_EDITED', 
+            jsonb_build_object('field', p_field_changed, 'old_value', p_old_value),
+            jsonb_build_object('field', p_field_changed, 'new_value', p_new_value),
+            p_analyst_id);
+    
+    RETURN v_version_number;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get SAR edit history
+CREATE OR REPLACE FUNCTION get_sar_edit_history(p_alert_id VARCHAR(255))
+RETURNS TABLE(
+    version_id INT,
+    version_number INT,
+    analyst_name VARCHAR(255),
+    field_changed VARCHAR(255),
+    change_type VARCHAR(50),
+    change_timestamp TIMESTAMP,
+    sar_status_before VARCHAR(50),
+    sar_status_after VARCHAR(50)
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        vl.version_id,
+        vl.version_number,
+        vl.analyst_name,
+        vl.field_changed,
+        vl.change_type,
+        vl.change_timestamp,
+        vl.sar_status_before,
+        vl.sar_status_after
+    FROM version_log vl
+    WHERE vl.alert_id = p_alert_id
+    ORDER BY vl.version_number DESC;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================================
--- 11. PERMISSIONS (Optional - Create application user)
+-- 12. PERMISSIONS (Optional - Create application user)
 -- ============================================================================
 
 CREATE USER barclays_app WITH PASSWORD 'change_me_to_secure_password';
