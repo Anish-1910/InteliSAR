@@ -47,7 +47,7 @@ CREATE TABLE transactions (
     payment_format VARCHAR(100),      -- ACH, WIRE, CARD, CHECK, etc.
     
     -- Alert Linkage
-    alert_id VARCHAR(255),
+    alert_id VARCHAR(255) REFERENCES alerts(alert_id) ON DELETE SET NULL,
     
     -- Metadata
     created_at TIMESTAMP DEFAULT NOW(),
