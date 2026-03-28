@@ -106,7 +106,7 @@ class FraudPatternDetector:
         return scores
     
     def _detect_sudden_spike(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 1: Sudden Spike in Amount"""
+        """Pattern 1: Sudden Spike in Amount - Using full history for accuracy"""
         if not history:
             return 0.0
         
@@ -114,16 +114,16 @@ class FraudPatternDetector:
         if current_amt == 0:
             return 0.0
         
-        # Get average of last 10 transactions
-        recent = sorted(history[-10:], key=lambda x: float(x.get('amount_received', 0)))
-        avg_amt = sum(float(t.get('amount_received', 0)) for t in recent) / len(recent) if recent else 0
+        # MODIFIED: Use entire history for more accurate average (not just last 10)
+        all_amounts = [float(t.get('amount_received', 0)) for t in history]
+        avg_amt = sum(all_amounts) / len(all_amounts) if all_amounts else 0
         
         if avg_amt == 0:
             return 0.0
         
         # Score based on deviation from average
         ratio = current_amt / avg_amt
-        if ratio > 10:  # 10x spike
+        if ratio >= 10:  # 10x spike - IMMEDIATE ALERT with high confidence
             return 1.0
         elif ratio > 5:  # 5x spike
             return 0.8
@@ -134,7 +134,7 @@ class FraudPatternDetector:
         return 0.0
     
     def _detect_structuring(self, account_id: str, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 2: Structuring/Smurfing (many transactions just below threshold)"""
+        """Pattern 2: Structuring/Smurfing - Modified to trigger on 3 occurrences"""
         THRESHOLD = 50000
         WINDOW_HOURS = 24
         
@@ -147,33 +147,47 @@ class FraudPatternDetector:
             float(t.get('amount_received', 0)) > THRESHOLD * 0.8
         ]
         
-        # If this transaction is also near threshold + multiple similar sized txs
+        # MODIFIED: If 3 or more threshold-near transactions, HIGH CONFIDENCE ALERT
         if THRESHOLD * 0.8 < current_amt < THRESHOLD:
             if len(below_threshold) >= 5:
                 return 1.0
-            elif len(below_threshold) >= 3:
-                return 0.7
+            elif len(below_threshold) >= 3:  # 3 times = high confidence alert
+                return 0.95  # INCREASED from 0.7 to 0.95
             elif len(below_threshold) >= 1:
                 return 0.4
         
         return 0.0
     
     def _detect_geographic_change(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 3: Geographic Behavior Change"""
+        """Pattern 3: Geographic Behavior Change - 2 shifts + large amounts = alert"""
         current_currency = transaction.get('receiving_currency', '')
         current_format = transaction.get('payment_format', '')
+        current_amt = float(transaction.get('amount_received', 0))
         
         if not history or not current_currency:
             return 0.0
         
+        # MODIFIED: Track 2 unusual location shifts with large amounts
+        
         # Get most common currencies in history
-        currencies = [t.get('receiving_currency', '') for t in history[-20:]]
+        currencies = [t.get('receiving_currency', '') for t in history[-30:]]
         if not currencies:
             return 0.0
         
         most_common = max(set(currencies), key=currencies.count)
         
-        # If currency changes for international wire (often fraud indicator)
+        # Count recent currency changes
+        currency_changes = [t for t in history[-10:] if t.get('receiving_currency') != most_common]
+        currency_change_count = len(set(t.get('receiving_currency', '') for t in currency_changes))
+        
+        # If 2+ unusual locations with large amounts
+        if current_currency != most_common and currency_change_count >= 2:
+            if current_amt > 50000 and current_format in ['Wire Transfer', 'International Transfer', 'ACH']:
+                return 0.9  # ELEVATED: 2 shifts + large international wire
+            elif current_amt > 50000:
+                return 0.8
+        
+        # Single currency change
         if current_currency != most_common:
             if current_format in ['Wire Transfer', 'International Transfer', 'ACH']:
                 return 0.7
@@ -182,16 +196,16 @@ class FraudPatternDetector:
         return 0.0
     
     def _detect_new_account_activity(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 4: New Account High Activity"""
-        # If very few transactions in history but large transaction
+        """Pattern 4: New Account High Activity - IMMEDIATE ALERT on spike"""
+        # MODIFIED: Fresh account with ANY spike = IMMEDIATE ALERT
         if len(history) <= 2:
             current_amt = float(transaction.get('amount_received', 0))
             if current_amt > 100000:
-                return 0.9
+                return 1.0  # ELEVATED: Immediate full alert
             elif current_amt > 50000:
-                return 0.6
+                return 0.95  # ELEVATED from 0.6 to 0.95: Immediate high alert
             elif current_amt > 10000:
-                return 0.3
+                return 0.75  # ELEVATED from 0.3 to 0.75: Fresh account spike
         
         return 0.0
     
@@ -221,13 +235,28 @@ class FraudPatternDetector:
         return 0.0
     
     def _detect_dormant_activation(self, history: List[Dict]) -> float:
-        """Pattern 6: Dormant Account Activation"""
+        """Pattern 6: Dormant Account - 20-30 transactions within 1hr = ALERT"""
         if len(history) < 2:
             return 0.0
         
-        # Get time between last two transactions
+        # MODIFIED: Check for sudden burst of 20-30+ transactions within 1 hour
         sorted_history = sorted(history, key=lambda x: x.get('timestamp', ''))
         
+        if len(sorted_history) >= 2:
+            # Check for recent activity burst
+            if len(sorted_history) >= 20:
+                recent_txs = sorted_history[-30:]
+                if len(recent_txs) >= 20:
+                    # Check time window
+                    first_recent = datetime.fromisoformat(recent_txs[0].get('timestamp', ''))
+                    last_recent = datetime.fromisoformat(recent_txs[-1].get('timestamp', ''))
+                    time_window_minutes = (last_recent - first_recent).total_seconds() / 60
+                    
+                    # 20-30 transactions within 1 hour = HIGH ALERT
+                    if time_window_minutes <= 60 and len(recent_txs) >= 20:
+                        return 1.0  # IMMEDIATE ALERT
+        
+        # Original gap-based logic still applies
         if len(sorted_history) >= 2:
             last_tx = datetime.fromisoformat(sorted_history[-1].get('timestamp', ''))
             prev_tx = datetime.fromisoformat(sorted_history[-2].get('timestamp', ''))
@@ -265,11 +294,26 @@ class FraudPatternDetector:
         return 0.0
     
     def _detect_balance_drain(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 8: Balance Drain Pattern"""
+        """Pattern 8: Balance Drain - Receiver gets 10-20x avg = ALERT"""
         if not history:
             return 0.0
         
-        # Look for pattern of large outflows
+        # MODIFIED: Check if receiver is getting 10-20x normal average
+        to_account = transaction.get('to_account', '')
+        current_amt = float(transaction.get('amount_received', 0))
+        
+        # Get average transaction amount to this receiver
+        txs_to_receiver = [t for t in history if t.get('to_account') == to_account]
+        if txs_to_receiver:
+            avg_to_receiver = sum(float(t.get('amount_received', 0)) for t in txs_to_receiver) / len(txs_to_receiver)
+            if avg_to_receiver > 0:
+                ratio = current_amt / avg_to_receiver
+                if ratio >= 20:  # 20x normal = IMMEDIATE ALERT
+                    return 1.0
+                elif ratio >= 10:  # 10x normal = HIGH ALERT
+                    return 0.95
+        
+        # Original balance drain logic
         recent_txs = history[-10:]
         
         outflow_total = sum(
@@ -309,26 +353,38 @@ class FraudPatternDetector:
         return 0.0
     
     def _detect_type_change(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 10: Transaction Type Change"""
+        """Pattern 10: Transaction Type - International wire within 4-5 txs"""
         current_format = transaction.get('payment_format', '')
+        current_amt = float(transaction.get('amount_received', 0))
         
         if not current_format or not history:
             return 0.0
         
-        history_formats = [t.get('payment_format', '') for t in history[-20:]]
+        # MODIFIED: Detect international wire transfers within 4-5 transactions
+        recent_txs = history[-5:]
+        history_formats = [t.get('payment_format', '') for t in recent_txs]
         
         if history_formats:
             most_common = max(set(history_formats), key=history_formats.count)
+            
+            # International wire detected within 4-5 txs
+            if current_format in ['Wire Transfer', 'International Transfer', 'SWIFT']:
+                wire_count = sum(1 for t in recent_txs if t.get('payment_format') in ['Wire Transfer', 'International Transfer', 'SWIFT'])
+                if wire_count >= 1 and current_format != most_common:
+                    if current_amt > 50000:
+                        return 0.85  # International wire pattern detected
+                    return 0.6
+            
+            # Regular type change
             if current_format != most_common:
-                # Large amount + format change
-                if float(transaction.get('amount_received', 0)) > 50000:
+                if current_amt > 50000:
                     return 0.6
                 return 0.2
         
         return 0.0
     
     def _detect_velocity_change(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 11: Velocity Change"""
+        """Pattern 11: Velocity Change - 10+ transaction within 1hr = ALERT"""
         TIME_WINDOW_HOURS = 1
         
         current_time = datetime.fromisoformat(transaction.get('timestamp', datetime.now().isoformat()))
@@ -340,9 +396,9 @@ class FraudPatternDetector:
             < TIME_WINDOW_HOURS * 3600
         ]
         
-        # If historical average is low but suddenly many transactions
-        if len(recent_txs) > 10:
-            return 0.9
+        # MODIFIED: >=10 transactions in 1 hour = HIGH VELOCITY
+        if len(recent_txs) >= 10:  # Changed from > to >=
+            return 0.95  # ELEVATED from 0.9
         elif len(recent_txs) > 5:
             return 0.7
         elif len(recent_txs) > 3:
@@ -351,21 +407,21 @@ class FraudPatternDetector:
         return 0.0
     
     def _detect_receiver_change(self, transaction: Dict, history: List[Dict]) -> float:
-        """Pattern 12: Receiver/Merchant Pattern Change"""
+        """Pattern 12: Receiver Change - Suddenly 10+ unknown accounts = ALERT"""
         to_account = transaction.get('to_account', '')
         
         if not to_account or len(history) < 5:
             return 0.0
         
-        # Get unique receivers
+        # MODIFIED: Track unique receivers and flag >10 unknown accounts
         unique_receivers = set(t.get('to_account', '') for t in history[-30:])
         
-        # If suddenly sending to many new receivers
+        # If sending to many new receivers (>10 unknown accounts)
         if to_account not in unique_receivers:
-            if len(unique_receivers) > 10:
-                return 0.7
+            if len(unique_receivers) > 10:  # >10 unknown accounts
+                return 0.95  # ELEVATED from 0.7: HIGH ALERT
             elif len(unique_receivers) > 5:
-                return 0.4
+                return 0.5  # ELEVATED from 0.4
         
         return 0.0
     
