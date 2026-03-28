@@ -150,7 +150,37 @@ CREATE TABLE audit_log (
 );
 
 -- ============================================================================
--- 7. MODEL METRICS TABLE (for monitoring)
+-- 7. LOGIN LOG TABLE (User Access Tracking)
+-- ============================================================================
+CREATE TABLE login_log (
+    login_id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,                     -- Analyst or system user ID
+    username VARCHAR(255) NOT NULL,                    -- Username for easy reference
+    role VARCHAR(50),                                  -- ANALYST, ADMIN, REVIEWER, SYSTEM
+    
+    -- Login Details
+    login_timestamp TIMESTAMP DEFAULT NOW(),           -- When user logged in
+    logout_timestamp TIMESTAMP,                        -- When user logged out (nullable)
+    session_id VARCHAR(255) NOT NULL UNIQUE,           -- Unique session identifier
+    session_duration_seconds INT,                      -- Duration in seconds (calculated on logout)
+    
+    -- Security Details
+    ip_address VARCHAR(45),                            -- IPv4 or IPv6 address
+    user_agent TEXT,                                   -- Browser/client information
+    device_type VARCHAR(50),                           -- WEB, MOBILE, API, DESKTOP
+    location VARCHAR(255),                             -- Geolocation if available
+    
+    -- Login Status
+    login_status VARCHAR(50) NOT NULL DEFAULT 'SUCCESS',  -- SUCCESS, FAILED, TIMEOUT
+    failure_reason VARCHAR(255),                       -- Reason if login failed
+    failed_attempts_before_this INT DEFAULT 0,         -- Number of failed attempts before success
+    
+    -- Metadata
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 8. MODEL METRICS TABLE (for monitoring)
 -- ============================================================================
 CREATE TABLE model_metrics (
     metric_id SERIAL PRIMARY KEY,
@@ -179,7 +209,7 @@ CREATE TABLE model_metrics (
 );
 
 -- ============================================================================
--- 8. PATTERN DEFINITIONS TABLE
+-- 9. PATTERN DEFINITIONS TABLE
 -- ============================================================================
 CREATE TABLE pattern_definitions (
     pattern_id SERIAL PRIMARY KEY,
@@ -207,7 +237,7 @@ INSERT INTO pattern_definitions (pattern_name, pattern_description, weight) VALU
     ('Circular Transactions', 'Round-trip money movement between accounts', 0.12);
 
 -- ============================================================================
--- 9. INDEXES FOR PERFORMANCE
+-- 10. INDEXES FOR PERFORMANCE
 -- ============================================================================
 
 -- Transactions indexes
@@ -246,8 +276,16 @@ CREATE INDEX idx_audit_log_timestamp ON audit_log(change_timestamp DESC);
 -- Model metrics indexes
 CREATE INDEX idx_model_metrics_date ON model_metrics(metric_date DESC);
 
+-- Login log indexes
+CREATE INDEX idx_login_log_user_id ON login_log(user_id);
+CREATE INDEX idx_login_log_username ON login_log(username);
+CREATE INDEX idx_login_log_login_timestamp ON login_log(login_timestamp DESC);
+CREATE INDEX idx_login_log_session_id ON login_log(session_id);
+CREATE INDEX idx_login_log_status ON login_log(login_status);
+CREATE INDEX idx_login_log_ip_address ON login_log(ip_address);
+
 -- ============================================================================
--- 10. VIEWS FOR COMMON QUERIES
+-- 11. VIEWS FOR COMMON QUERIES
 -- ============================================================================
 
 -- High-risk accounts view
@@ -300,7 +338,7 @@ FROM version_log vl
 ORDER BY vl.alert_id, vl.version_number DESC;
 
 -- ============================================================================
--- 11. FUNCTIONS FOR COMMON OPERATIONS
+-- 12. FUNCTIONS FOR COMMON OPERATIONS
 -- ============================================================================
 
 -- Function to create a new alert
@@ -435,8 +473,87 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to log user login
+CREATE OR REPLACE FUNCTION log_user_login(
+    p_user_id VARCHAR(255),
+    p_username VARCHAR(255),
+    p_role VARCHAR(50),
+    p_ip_address VARCHAR(45),
+    p_user_agent TEXT,
+    p_device_type VARCHAR(50),
+    p_location VARCHAR(255),
+    p_login_status VARCHAR(50) DEFAULT 'SUCCESS',
+    p_failure_reason VARCHAR(255) DEFAULT NULL,
+    p_failed_attempts INT DEFAULT 0
+)
+RETURNS VARCHAR(255) AS $$
+DECLARE
+    v_session_id VARCHAR(255);
+BEGIN
+    -- Generate unique session ID
+    v_session_id := 'SESSION_' || TO_CHAR(NOW(), 'YYYY-MM-DD-HH24-MI-SS-US') || '_' || 
+                    SUBSTR(MD5(p_user_id || RANDOM()::TEXT), 1, 12);
+    
+    -- Insert the login record
+    INSERT INTO login_log (
+        user_id, username, role, ip_address, user_agent, device_type, location,
+        session_id, login_status, failure_reason, failed_attempts_before_this
+    ) VALUES (
+        p_user_id, p_username, p_role, p_ip_address, p_user_agent, p_device_type, p_location,
+        v_session_id, p_login_status, p_failure_reason, p_failed_attempts
+    );
+    
+    -- Log to audit table (successful logins only)
+    IF p_login_status = 'SUCCESS' THEN
+        INSERT INTO audit_log (action_type, new_values, changed_by)
+        VALUES ('USER_LOGIN', 
+                jsonb_build_object('user_id', p_user_id, 'username', p_username, 'ip_address', p_ip_address, 'device_type', p_device_type),
+                p_user_id);
+    END IF;
+    
+    RETURN v_session_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to log user logout
+CREATE OR REPLACE FUNCTION log_user_logout(p_session_id VARCHAR(255))
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_user_id VARCHAR(255);
+    v_login_time TIMESTAMP;
+    v_duration_seconds INT;
+BEGIN
+    -- Get the login record
+    SELECT user_id, login_timestamp INTO v_user_id, v_login_time
+    FROM login_log
+    WHERE session_id = p_session_id AND logout_timestamp IS NULL
+    LIMIT 1;
+    
+    IF v_user_id IS NULL THEN
+        RETURN FALSE;  -- Session not found or already logged out
+    END IF;
+    
+    -- Calculate session duration in seconds
+    v_duration_seconds := EXTRACT(EPOCH FROM (NOW() - v_login_time))::INT;
+    
+    -- Update the login record with logout info
+    UPDATE login_log
+    SET logout_timestamp = NOW(),
+        session_duration_seconds = v_duration_seconds
+    WHERE session_id = p_session_id;
+    
+    -- Log to audit table
+    INSERT INTO audit_log (action_type, new_values, changed_by)
+    VALUES ('USER_LOGOUT', 
+            jsonb_build_object('user_id', v_user_id, 'session_duration_seconds', v_duration_seconds),
+            v_user_id);
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================================
--- 12. PERMISSIONS (Optional - Create application user)
+-- 13. PERMISSIONS (Optional - Create application user)
 -- ============================================================================
 
 CREATE USER barclays_app WITH PASSWORD 'change_me_to_secure_password';
@@ -456,6 +573,15 @@ GRANT SELECT ON ALL VIEWS IN SCHEMA public TO barclays_app;
 -- ============================================================================
 -- Your PostgreSQL database is now ready!
 -- 
+-- Features Included:
+--   • 9 tables for accounts, transactions, alerts, and fraud detection
+--   • ML predictions tracking in separate table for clean architecture
+--   • SAR report version control with full edit history
+--   • User login/logout tracking for security audit trail
+--   • 30+ performance indexes for query optimization
+--   • PL/pgSQL functions for alerts, SAR edits, and login tracking
+--   • 13 configurable fraud detection patterns
+--
 -- Next steps:
 -- 1. Connect to your database: psql -U postgres -d barclays_aml
 -- 2. Verify tables: \dt
@@ -466,4 +592,7 @@ GRANT SELECT ON ALL VIEWS IN SCHEMA public TO barclays_app;
 --    - Host: localhost (or your server)
 --    - Port: 5432
 --    - Database: barclays_aml
+-- 
+-- Important: Backend must call log_user_login() and log_user_logout() functions
+--            when users authenticate to maintain complete access audit trail
 -- ============================================================================
