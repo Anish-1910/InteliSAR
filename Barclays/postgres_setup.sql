@@ -46,13 +46,6 @@ CREATE TABLE transactions (
     payment_currency VARCHAR(3),
     payment_format VARCHAR(100),      -- ACH, WIRE, CARD, CHECK, etc.
     
-    -- ML Model Predictions
-    confidence_score INT DEFAULT 0,                    -- 1-100 scale
-    is_suspicious BOOLEAN DEFAULT false,               -- Boolean flag
-    risk_level VARCHAR(50),                            -- MINIMAL, LOW, MEDIUM, HIGH, CRITICAL
-    ml_processed BOOLEAN DEFAULT false,                -- Flag to track processing
-    processing_timestamp TIMESTAMP,
-    
     -- Alert Linkage
     alert_id VARCHAR(255),
     
@@ -62,7 +55,24 @@ CREATE TABLE transactions (
 );
 
 -- ============================================================================
--- 3. ALERTS TABLE
+-- 3. ML PREDICTIONS TABLE
+-- ============================================================================
+CREATE TABLE ml_predictions (
+    prediction_id SERIAL PRIMARY KEY,
+    account_id VARCHAR(255) NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
+    transaction_id VARCHAR(255) NOT NULL REFERENCES transactions(transaction_id) ON DELETE CASCADE,
+    
+    -- Prediction Details
+    rule_violated VARCHAR(255) NOT NULL,              -- Pattern name (e.g., 'Sudden Spike', 'Structuring/Smurfing')
+    score INT NOT NULL,                               -- Confidence score 1-100
+    
+    -- Metadata
+    prediction_timestamp TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 4. ALERTS TABLE
 -- ============================================================================
 CREATE TABLE alerts (
     alert_id VARCHAR(255) PRIMARY KEY,
@@ -95,7 +105,7 @@ CREATE TABLE alerts (
 );
 
 -- ============================================================================
--- 4. AUDIT LOG TABLE
+-- 5. AUDIT LOG TABLE
 -- ============================================================================
 CREATE TABLE audit_log (
     log_id SERIAL PRIMARY KEY,
@@ -111,7 +121,7 @@ CREATE TABLE audit_log (
 );
 
 -- ============================================================================
--- 5. MODEL METRICS TABLE (for monitoring)
+-- 6. MODEL METRICS TABLE (for monitoring)
 -- ============================================================================
 CREATE TABLE model_metrics (
     metric_id SERIAL PRIMARY KEY,
@@ -140,7 +150,7 @@ CREATE TABLE model_metrics (
 );
 
 -- ============================================================================
--- 6. PATTERN DEFINITIONS TABLE
+-- 7. PATTERN DEFINITIONS TABLE
 -- ============================================================================
 CREATE TABLE pattern_definitions (
     pattern_id SERIAL PRIMARY KEY,
@@ -168,15 +178,12 @@ INSERT INTO pattern_definitions (pattern_name, pattern_description, weight) VALU
     ('Circular Transactions', 'Round-trip money movement between accounts', 0.12);
 
 -- ============================================================================
--- 7. INDEXES FOR PERFORMANCE
+-- 8. INDEXES FOR PERFORMANCE
 -- ============================================================================
 
 -- Transactions indexes
 CREATE INDEX idx_transactions_account_id ON transactions(account_id);
 CREATE INDEX idx_transactions_timestamp ON transactions(timestamp DESC);
-CREATE INDEX idx_transactions_ml_processed ON transactions(ml_processed);
-CREATE INDEX idx_transactions_is_suspicious ON transactions(is_suspicious);
-CREATE INDEX idx_transactions_confidence ON transactions(confidence_score DESC);
 CREATE INDEX idx_transactions_alert_id ON transactions(alert_id);
 
 -- Alerts indexes
@@ -187,6 +194,13 @@ CREATE INDEX idx_alerts_alert_timestamp ON alerts(alert_timestamp DESC);
 CREATE INDEX idx_alerts_confidence ON alerts(confidence_score DESC);
 CREATE INDEX idx_alerts_risk_level ON alerts(risk_level);
 
+-- ML Predictions indexes
+CREATE INDEX idx_ml_predictions_account_id ON ml_predictions(account_id);
+CREATE INDEX idx_ml_predictions_transaction_id ON ml_predictions(transaction_id);
+CREATE INDEX idx_ml_predictions_score ON ml_predictions(score DESC);
+CREATE INDEX idx_ml_predictions_rule_violated ON ml_predictions(rule_violated);
+CREATE INDEX idx_ml_predictions_timestamp ON ml_predictions(prediction_timestamp DESC);
+
 -- Audit log indexes
 CREATE INDEX idx_audit_log_transaction_id ON audit_log(transaction_id);
 CREATE INDEX idx_audit_log_alert_id ON audit_log(alert_id);
@@ -196,7 +210,7 @@ CREATE INDEX idx_audit_log_timestamp ON audit_log(change_timestamp DESC);
 CREATE INDEX idx_model_metrics_date ON model_metrics(metric_date DESC);
 
 -- ============================================================================
--- 8. VIEWS FOR COMMON QUERIES
+-- 9. VIEWS FOR COMMON QUERIES
 -- ============================================================================
 
 -- High-risk accounts view
@@ -233,7 +247,7 @@ WHERE al.status = 'NEW'
 ORDER BY al.confidence_score DESC, al.alert_timestamp DESC;
 
 -- ============================================================================
--- 9. FUNCTIONS FOR COMMON OPERATIONS
+-- 10. FUNCTIONS FOR COMMON OPERATIONS
 -- ============================================================================
 
 -- Function to create a new alert
@@ -295,7 +309,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- 10. PERMISSIONS (Optional - Create application user)
+-- 11. PERMISSIONS (Optional - Create application user)
 -- ============================================================================
 
 CREATE USER barclays_app WITH PASSWORD 'change_me_to_secure_password';
