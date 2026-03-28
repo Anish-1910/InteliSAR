@@ -1,0 +1,34 @@
+{
+  "admin": [
+    {
+      "id": 1,
+      "username": "admin@intelisar.com",
+      "password": "admin123",
+      "name": "System Administrator",
+      "role": "admin"
+    },
+    {
+      "id": 2,
+      "username": "superadmin@intelisar.com",
+      "password": "super123",
+      "name": "Super Administrator",
+      "role": "admin"
+    }
+  ],
+  "analyser": [
+    {
+      "id": 1,
+      "username": "analyser@intelisar.com",
+      "password": "analyser123",
+      "name": "Fraud Analyst",
+      "role": "analyser"
+    },
+    {
+      "id": 2,
+      "username": "senior.analyser@intelisar.com",
+      "password": "senior123",
+      "name": "Senior Fraud Analyst",
+      "role": "analyser"
+    }
+  ]
+}
