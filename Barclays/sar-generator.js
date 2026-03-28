@@ -1,53 +1,142 @@
 /**
  * SAR Generation Service
- * Generates Suspicious Activity Reports using Groq LLM API
+ * Generates Suspicious Activity Reports using RAG + LLM
  */
 
 const axios = require('axios');
+const RAGSystem = require('./rag-system');
+const LLMService = require('./llm-service');
+
+// Initialize RAG and LLM systems
+const ragSystem = new RAGSystem();
+const llmService = new LLMService();
 
 const SAR_GENERATOR_CONFIG = {
-  apiKey: process.env.GROQ_API_KEY || 'your-api-key-here',
-  apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
-  model: 'llama3-70b-8192',  // Updated: using current available model
+  useRAG: process.env.USE_RAG !== 'false',
+  useLLM: process.env.USE_LLM !== 'false',
+  llmProvider: process.env.LLM_PROVIDER || 'groq',
 };
 
 /**
- * Generate SAR using Groq LLM API
+ * Generate SAR using RAG + LLM
  */
 async function generateSAR(alertData) {
   try {
-    // Build context from alert data
-    const context = buildSARContext(alertData);
+    console.log('[SAR] Starting SAR generation for alert:', alertData.alert_id);
 
-    // Create SAR generation prompt
-    const prompt = createSARPrompt(context);
+    // Step 1: Use RAG to build context
+    let ragContext = {};
+    let enhancedPrompt = '';
 
-    // Call Groq API
-    const response = await axios.post(
-      SAR_GENERATOR_CONFIG.apiUrl,
-      {
-        model: SAR_GENERATOR_CONFIG.model,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a compliance officer specializing in AML (Anti-Money Laundering) Suspicious Activity Reports (SARs). 
-Generate professional, detailed SARs based on fraud detection alerts. Include all required sections:
-- Filing Institution Information
-- Subject Information
-- Transaction Details
-- Suspicious Activity Description
-- Investigation Findings
-- Reporting Officer Certification
+    if (SAR_GENERATOR_CONFIG.useRAG) {
+      console.log('[SAR] Building RAG context...');
+      ragContext = ragSystem.buildRAGContext(alertData);
+      enhancedPrompt = ragSystem.createEnhancedPrompt(alertData, ragContext);
+      console.log('[SAR] RAG context built successfully');
+    } else {
+      enhancedPrompt = createSARPrompt(buildSARContext(alertData));
+    }
 
-Format the SAR in a professional document style.`,
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
+    // Step 2: Call LLM with enhanced prompt
+    let llmResponse = null;
+    if (SAR_GENERATOR_CONFIG.useLLM) {
+      console.log('[SAR] Calling LLM service...');
+      try {
+        llmResponse = await llmService.generateText(
+          enhancedPrompt,
+          'You are a compliance officer specializing in AML Suspicious Activity Reports.'
+        );
+        console.log('[SAR] LLM generation successful');
+      } catch (llmError) {
+        console.error('[SAR] LLM generation failed:', llmError.message);
+        console.log('[SAR] Falling back to template-based SAR');
+        llmResponse = null;
+      }
+    }
+
+    // Step 3: Return LLM response or fallback to template
+    if (llmResponse) {
+      return {
+        sar_text: llmResponse.text,
+        model: llmResponse.model,
+        provider: llmResponse.provider,
+        tokens_used: llmResponse.tokensUsed,
+        generated_at: new Date().toISOString(),
+        alert_id: alertData.alert_id,
+        ragContext: SAR_GENERATOR_CONFIG.useRAG ? ragContext : null,
+        method: 'RAG+LLM',
+      };
+    } else {
+      // Fallback to template
+      console.log('[SAR] Using template-based SAR generation');
+      const sarText = generateTemplateSAR(alertData, ragContext);
+      return {
+        sar_text: sarText,
+        model: 'template-based',
+        provider: 'fallback',
+        tokens_used: 0,
+        generated_at: new Date().toISOString(),
+        alert_id: alertData.alert_id,
+        ragContext: SAR_GENERATOR_CONFIG.useRAG ? ragContext : null,
+        method: 'Template (Fallback)',
+        fallback: true,
+      };
+    }
+  } catch (error) {
+    console.error('[SAR] Error generating SAR:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Build context from alert data (legacy)
+ */
+function buildSARContext(alertData) {
+  const patterns = alertData.patterns_detected || [];
+  const patternSummary = patterns.join(', ') || 'Unknown patterns';
+
+  return {
+    alertId: alertData.alert_id,
+    transactionId: alertData.transaction_id,
+    accountId: alertData.account_id,
+    confidenceScore: alertData.confidence_score,
+    riskLevel: alertData.risk_level,
+    patternsDetected: patternSummary,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Create SAR generation prompt (legacy)
+ */
+function createSARPrompt(context) {
+  return `
+Generate a detailed Suspicious Activity Report (SAR) with the following information:
+
+Alert Details:
+- Alert ID: ${context.alertId}
+- Transaction ID: ${context.transactionId}
+- Account ID: ${context.accountId}
+- Confidence Score: ${context.confidenceScore}%
+- Risk Level: ${context.riskLevel}
+- Detected Patterns: ${context.patternsDetected}
+- Detection Timestamp: ${context.timestamp}
+
+Please generate a comprehensive SAR that:
+1. Documents the suspicious activity in detail
+2. Explains how the detected patterns indicate potential AML violations
+3. Includes relevant sections for compliance filing
+4. Provides clear findings and recommendations
+5. Is formatted as a professional compliance document
+
+Make the report realistic and comprehensive, suitable for filing with financial regulators.
+`;
+}
+
+/**
+ * Generate template-based SAR (fallback when LLM is unavailable)
+ */
+function generateTemplateSAR(alertData, ragContext = {}) {
       },
       {
         headers: {

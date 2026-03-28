@@ -10,12 +10,13 @@ const { Pool } = require('pg');
 const axios = require('axios');
 const cron = require('node-cron');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
 
 // Load configuration
 const { config, validateConfig } = require('./config');
 
-// Load SAR generator
-const { generateSAR } = require('./sar-generator');
+// Load SAR generator (v3 with PDF support)
+const { generateSAR, pdfService } = require('./sar-generator-v3');
 
 // Initialize Express app
 const app = express();
@@ -36,6 +37,24 @@ app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
   });
   next();
+});
+
+// ============================================================================
+// FILE UPLOAD CONFIGURATION (for PDF templates)
+// ============================================================================
+
+const upload = multer({
+  dest: 'sar_templates/',
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else if (file.mimetype === 'application/json') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and JSON files are allowed'));
+    }
+  }
 });
 
 // ============================================================================
@@ -324,6 +343,49 @@ app.get('/api/alerts', async (req, res) => {
 });
 
 /**
+ * GET /api/alerts/:alertId
+ * Get specific alert details
+ */
+app.get('/api/alerts/:alertId', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { alertId } = req.params;
+
+    const result = await client.query(`
+      SELECT a.*, t.*, acc.customer_name, acc.account_type
+      FROM alerts a
+      LEFT JOIN transactions t ON a.transaction_id = t.transaction_id
+      LEFT JOIN accounts acc ON a.account_id = acc.account_id
+      WHERE a.alert_id = $1;
+    `, [alertId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Alert not found' });
+    }
+
+    const alertData = result.rows[0];
+    res.json({
+      alert: alertData,
+      alert_id: alertData.alert_id,
+      account_id: alertData.account_id,
+      transaction_id: alertData.transaction_id,
+      confidence_score: alertData.confidence_score,
+      risk_level: alertData.risk_level,
+      status: alertData.status,
+      patterns_detected: alertData.patterns_detected,
+      amount_received: alertData.amount_received,
+      currency: alertData.receiving_currency,
+    });
+  } catch (error) {
+    console.error('Error fetching alert details:', error);
+    res.status(500).json({ error: 'Failed to fetch alert details' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
  * PUT /api/alerts/:alertId/acknowledge
  * Acknowledge an alert
  */
@@ -502,6 +564,304 @@ app.post('/api/sar/generate', async (req, res) => {
       error: 'Failed to generate SAR',
       message: error.message,
     });
+  }
+});
+
+/**
+ * POST /api/generate-sar
+ * Alternative endpoint for generating SAR (matches frontend expectation)
+ * Now uses RAG+LLM enhanced generation
+ */
+app.post('/api/generate-sar', async (req, res) => {
+  let client;
+  try {
+    console.log('[API] SAR generation request received');
+    const { alertId, alertData } = req.body;
+
+    if (!alertId && !alertData?.alert_id) {
+      console.error('[API] Missing alert_id in request');
+      return res.status(400).json({ error: 'alert_id is required' });
+    }
+
+    const aid = alertId || alertData.alert_id;
+    console.log(`[API] Generating SAR for alert: ${aid}`);
+
+    client = await pool.connect();
+
+    // If alertData is minimal or alert_id is null, fetch full data from database
+    let fullAlertData = alertData || {};
+    const alertIdToUse = aid;
+    
+    // Check if we have valid alert data or need to fetch from DB
+    const needsDBFetch = !fullAlertData.account_id || 
+                         !fullAlertData.transaction_id || 
+                         fullAlertData.alert_id === null ||
+                         fullAlertData.alert_id === undefined;
+    
+    if (needsDBFetch) {
+      console.log('[API] Fetching full alert data from database...');
+      const dbResult = await client.query(`
+        SELECT 
+          a.alert_id, a.transaction_id, a.account_id, 
+          a.confidence_score, a.risk_level, a.priority,
+          a.patterns_detected, a.pattern_scores, a.status,
+          t.from_account, t.to_account, t.timestamp,
+          t.amount_received, t.receiving_currency, 
+          t.amount_paid, t.payment_currency, t.payment_format,
+          acc.customer_name, acc.account_type
+        FROM alerts a
+        LEFT JOIN transactions t ON a.transaction_id = t.transaction_id
+        LEFT JOIN accounts acc ON a.account_id = acc.account_id
+        WHERE a.alert_id = $1;
+      `, [alertIdToUse]);
+
+      if (dbResult.rows.length > 0) {
+        fullAlertData = dbResult.rows[0];
+        console.log('[API] Fetched complete alert data from database');
+        console.log('[API] Alert ID from DB:', fullAlertData.alert_id);
+      } else {
+        return res.status(404).json({ error: 'Alert not found in database' });
+      }
+    }
+
+    // Ensure alert_id is set correctly
+    fullAlertData.alert_id = alertIdToUse;
+
+    console.log('[API] Calling RAG+LLM SAR generator...');
+
+    // Generate SAR using RAG+LLM
+    const sarResult = await generateSAR(fullAlertData);
+
+    console.log(`[API] ✓ SAR generated successfully for alert: ${aid}`);
+    console.log(`[API] Method: ${sarResult.method} | Provider: ${sarResult.provider}`);
+
+    res.json({
+      sarContent: sarResult.sar_text,
+      alert_id: aid,
+      generated_at: sarResult.generated_at,
+      status: 'success',
+      method: sarResult.method,
+      provider: sarResult.provider,
+      model: sarResult.model,
+      fallback: sarResult.fallback || false,
+      ragContext: process.env.INCLUDE_RAG_CONTEXT === 'true' ? sarResult.ragContext : undefined,
+    });
+  } catch (error) {
+    console.error('[API] Error generating SAR:', error);
+    
+    // Try to return a graceful fallback
+    try {
+      const fallbackResult = await generateSAR(req.body.alertData || { alert_id: req.body.alertId });
+      return res.json({
+        sarContent: fallbackResult.sar_text,
+        alert_id: req.body.alertId || req.body.alertData?.alert_id,
+        status: 'success_fallback',
+        method: 'Template (Emergency Fallback)',
+        fallback: true,
+      });
+    } catch (fallbackError) {
+      console.error('[API] Fallback SAR generation also failed:', fallbackError.message);
+    }
+
+    res.status(500).json({
+      error: 'Failed to generate SAR',
+      message: error.message,
+    });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ============================================================================
+// PDF TEMPLATE MANAGEMENT
+// ============================================================================
+
+/**
+ * GET /api/templates
+ * List all available SAR templates
+ */
+app.get('/api/templates', (req, res) => {
+  try {
+    const templates = pdfService.getAllTemplates();
+    res.json({
+      templates,
+      total: templates.length,
+      status: 'success',
+    });
+  } catch (error) {
+    console.error('[API] Error fetching templates:', error);
+    res.status(500).json({ error: 'Failed to fetch templates' });
+  }
+});
+
+/**
+ * POST /api/templates/upload
+ * Upload a new SAR template (PDF or JSON)
+ */
+app.post('/api/templates/upload', upload.single('template'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const templateName = req.body.templateName || req.file.originalname.replace(/\.[^.]+$/, '');
+    
+    // For JSON templates
+    if (req.file.mimetype === 'application/json') {
+      const templateData = JSON.parse(require('fs').readFileSync(req.file.path, 'utf8'));
+      const validation = pdfService.validateTemplate(templateData);
+      
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: 'Invalid template structure',
+          details: validation.errors 
+        });
+      }
+
+      pdfService.saveTemplate(templateName, templateData);
+      
+      res.json({
+        status: 'success',
+        templateName,
+        message: 'Template uploaded successfully',
+      });
+    }
+    // For PDF templates - extract fields and create metadata
+    else if (req.file.mimetype === 'application/pdf') {
+      // Extract template structure from PDF
+      const extractedTemplate = pdfService.extractTemplateFromPDF(
+        require('fs').readFileSync(req.file.path)
+      );
+      
+      extractedTemplate.name = templateName;
+      extractedTemplate.originalFile = req.file.originalname;
+      extractedTemplate.uploadedAt = new Date().toISOString();
+      
+      pdfService.saveTemplate(templateName, extractedTemplate);
+      
+      res.json({
+        status: 'success',
+        templateName,
+        message: 'PDF template uploaded. Please map the fields in the extraction form.',
+        template: extractedTemplate,
+      });
+    }
+  } catch (error) {
+    console.error('[API] Error uploading template:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload template',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * DELETE /api/templates/:name
+ * Delete a SAR template
+ */
+app.delete('/api/templates/:name', (req, res) => {
+  try {
+    const { name } = req.params;
+    
+    // Don't allow deleting default template
+    if (name === 'default') {
+      return res.status(400).json({ error: 'Cannot delete default template' });
+    }
+
+    const deleted = pdfService.deleteTemplate(name);
+    
+    if (deleted) {
+      res.json({ status: 'success', message: `Template '${name}' deleted` });
+    } else {
+      res.status(404).json({ error: `Template '${name}' not found` });
+    }
+  } catch (error) {
+    console.error('[API] Error deleting template:', error);
+    res.status(500).json({ error: 'Failed to delete template' });
+  }
+});
+
+/**
+ * POST /api/generate-sar-pdf
+ * Generate SAR in PDF format and download
+ */
+app.post('/api/generate-sar-pdf', async (req, res) => {
+  let client;
+  try {
+    console.log('[API] PDF SAR generation request received');
+    const { alertId, alertData, templateName } = req.body;
+
+    if (!alertId && !alertData?.alert_id) {
+      return res.status(400).json({ error: 'alert_id is required' });
+    }
+
+    const aid = alertId || alertData.alert_id;
+    console.log(`[API] Generating PDF SAR for alert: ${aid}`);
+
+    client = await pool.connect();
+
+    // Fetch full alert data if needed
+    let fullAlertData = alertData || {};
+    const alertIdToUse = aid;
+    
+    const needsDBFetch = !fullAlertData.account_id || 
+                         !fullAlertData.transaction_id || 
+                         fullAlertData.alert_id === null ||
+                         fullAlertData.alert_id === undefined;
+    
+    if (needsDBFetch) {
+      const dbResult = await client.query(`
+        SELECT 
+          a.alert_id, a.transaction_id, a.account_id, 
+          a.confidence_score, a.risk_level, a.priority,
+          a.patterns_detected, a.pattern_scores, a.status,
+          t.from_account, t.to_account, t.timestamp,
+          t.amount_received, t.receiving_currency, 
+          t.amount_paid, t.payment_currency, t.payment_format,
+          acc.customer_name, acc.account_type
+        FROM alerts a
+        LEFT JOIN transactions t ON a.transaction_id = t.transaction_id
+        LEFT JOIN accounts acc ON a.account_id = acc.account_id
+        WHERE a.alert_id = $1;
+      `, [alertIdToUse]);
+
+      if (dbResult.rows.length > 0) {
+        fullAlertData = dbResult.rows[0];
+      } else {
+        return res.status(404).json({ error: 'Alert not found' });
+      }
+    }
+
+    fullAlertData.alert_id = alertIdToUse;
+
+    // Generate SAR with PDF format
+    const sarResult = await generateSAR(fullAlertData, {
+      format: 'pdf',
+      templateName: templateName || 'default'
+    });
+
+    if (sarResult.pdf_buffer) {
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="SAR_${aid}_${Date.now()}.pdf"`);
+      res.send(sarResult.pdf_buffer);
+      
+      console.log(`[API] ✓ PDF SAR sent for download: ${aid}`);
+    } else {
+      res.status(500).json({
+        error: 'PDF generation failed',
+        message: 'Could not generate PDF',
+        sarText: sarResult.sar_text, // Fallback text
+      });
+    }
+  } catch (error) {
+    console.error('[API] Error generating PDF SAR:', error);
+    res.status(500).json({
+      error: 'Failed to generate PDF SAR',
+      message: error.message,
+    });
+  } finally {
+    if (client) client.release();
   }
 });
 

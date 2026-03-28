@@ -11,6 +11,11 @@ const SARPage = () => {
   const [sarContent, setSarContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [format, setFormat] = useState('text'); // 'text' or 'pdf'
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('default');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     { id: 1, text: "Hello! I'm your SAR assistant. How can I help you with this suspicious activity report?", sender: 'bot' }
   ]);
@@ -18,6 +23,7 @@ const SARPage = () => {
 
   useEffect(() => {
     fetchAlertDetails();
+    fetchTemplates();
   }, [alertId]);
 
   const fetchAlertDetails = async () => {
@@ -34,17 +40,65 @@ const SARPage = () => {
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      setTemplateLoading(true);
+      const response = await axios.get('http://localhost:3000/api/templates');
+      setTemplates(response.data.templates || []);
+      if (response.data.templates && response.data.templates.length > 0) {
+        setSelectedTemplate(response.data.templates[0]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch templates:', err);
+      setTemplates(['default']);
+      setSelectedTemplate('default');
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
   const handleGenerateSAR = async () => {
     if (!alert) return;
 
     setIsGenerating(true);
     try {
-      const response = await axios.post('http://localhost:3000/api/generate-sar', {
-        alertId: alert.alert_id,
-        alertData: alert
-      });
+      console.log(`Generating SAR for alert: ${alert.alert_id} in format: ${format}`);
+      
+      if (format === 'pdf') {
+        // Generate PDF - returns binary data
+        const response = await axios.post(
+          'http://localhost:3000/api/generate-sar-pdf',
+          {
+            alertId: alert.alert_id || alertId,
+            templateName: selectedTemplate
+          },
+          { responseType: 'blob' }
+        );
 
-      setSarContent(response.data.sarContent);
+        // Create a blob URL and trigger download
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `SAR_${alert.alert_id}_${Date.now()}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        setSarContent(`PDF generated and downloaded: SAR_${alert.alert_id}_${Date.now()}.pdf`);
+      } else {
+        // Generate text SAR
+        const response = await axios.post('http://localhost:3000/api/generate-sar', {
+          alertId: alert.alert_id || alertId,
+          alertData: {
+            alert_id: alert.alert_id || alertId,
+            ...alert
+          }
+        });
+
+        setSarContent(response.data.sarContent);
+      }
+      
       setIsEditing(false);
     } catch (err) {
       setError('Failed to generate SAR: ' + err.message);
@@ -153,6 +207,45 @@ const SARPage = () => {
               <h1 className="text-2xl font-bold text-gray-900">SAR Generation</h1>
             </div>
             <div className="flex items-center space-x-3">
+              {/* Format Selection */}
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setFormat('text')}
+                  className={`px-3 py-1 rounded transition-colors ${
+                    format === 'text'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Text
+                </button>
+                <button
+                  onClick={() => setFormat('pdf')}
+                  className={`px-3 py-1 rounded transition-colors ${
+                    format === 'pdf'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  PDF
+                </button>
+              </div>
+
+              {/* Template Selection */}
+              {format === 'pdf' && templates.length > 0 && (
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  {templates.map((template) => (
+                    <option key={template} value={template}>
+                      {template}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               <button
                 onClick={handleGenerateSAR}
                 disabled={isGenerating}
