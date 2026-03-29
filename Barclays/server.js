@@ -928,8 +928,6 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     console.log(`[Chatbot] Query received: "${message}" | Alert: ${alertId || 'general'}`);
 
-    client = await pool.connect();
-
     // Build context for RAG
     let ragContext = {
       alert_data: null,
@@ -956,25 +954,38 @@ app.post('/api/chatbot/ask', async (req, res) => {
       },
     };
 
-    // Fetch alert data if alertId provided
+    // Try to fetch alert data from database, fall back to mock data if unavailable
     if (alertId) {
-      const alertResult = await client.query(`
-        SELECT 
-          a.alert_id, a.transaction_id, a.account_id, 
-          a.confidence_score, a.risk_level, a.priority,
-          a.patterns_detected, a.status,
-          t.from_account, t.to_account, t.timestamp,
-          t.amount_received, t.receiving_currency, 
-          t.amount_paid, t.payment_currency, t.payment_format,
-          acc.customer_name, acc.account_type, acc.country
-        FROM alerts a
-        LEFT JOIN transactions t ON a.transaction_id = t.transaction_id
-        LEFT JOIN accounts acc ON a.account_id = acc.account_id
-        WHERE a.alert_id = $1;
-      `, [alertId]);
+      try {
+        client = await pool.connect();
+        const alertResult = await client.query(`
+          SELECT 
+            a.alert_id, a.transaction_id, a.account_id, 
+            a.confidence_score, a.risk_level, a.priority,
+            a.patterns_detected, a.status,
+            t.from_account, t.to_account, t.timestamp,
+            t.amount_received, t.receiving_currency, 
+            t.amount_paid, t.payment_currency, t.payment_format,
+            acc.customer_name, acc.account_type, acc.country
+          FROM alerts a
+          LEFT JOIN transactions t ON a.transaction_id = t.transaction_id
+          LEFT JOIN accounts acc ON a.account_id = acc.account_id
+          WHERE a.alert_id = $1;
+        `, [alertId]);
 
-      if (alertResult.rows.length > 0) {
-        ragContext.alert_data = alertResult.rows[0];
+        if (alertResult.rows.length > 0) {
+          ragContext.alert_data = alertResult.rows[0];
+        }
+      } catch (dbError) {
+        console.warn('[Chatbot] Database unavailable, using mock data:', dbError.message);
+        // Fall back to mock alerts
+        const allMockAlerts = mockGetAlerts();
+        const mockAlert = allMockAlerts.find(a => a.alert_id === alertId);
+        if (mockAlert) {
+          ragContext.alert_data = mockAlert;
+        }
+      } finally {
+        if (client) client.release();
       }
     }
 

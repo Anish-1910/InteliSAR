@@ -73,7 +73,12 @@ const Login = () => {
       if (response.ok && data.status === 'success') {
         // Store JWT token and user info
         localStorage.setItem('token', data.token);
-        localStorage.setItem('analyst', JSON.stringify(data.analyst));
+        localStorage.setItem('user', JSON.stringify({
+          id: data.analyst.analyst_id,
+          name: data.analyst.full_name,
+          username: data.analyst.email,
+          role: data.analyst.role.toLowerCase()
+        }));
 
         // Show success message
         alert(`Welcome, ${data.analyst.full_name}!`);
@@ -262,18 +267,6 @@ const Login = () => {
             )}
           </button>
         </form>
-
-        {/* Demo Credentials */}
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h3>
-          <div className="text-xs text-gray-600 space-y-1">
-            {usersData[role]?.map(user => (
-              <div key={user.id} className="font-mono">
-                {user.username} / {user.password}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

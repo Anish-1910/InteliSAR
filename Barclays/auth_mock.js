@@ -5,7 +5,55 @@
  */
 
 // Mock analyst database
+// These match the credentials in frontend/src/data/users.json
 const mockAnalysts = {
+  // Analyser credentials
+  'analyser@intelisar.com': {
+    analyst_id: 1,
+    username: 'analyser',
+    email: 'analyser@intelisar.com',
+    password: 'analyser123',
+    first_name: 'Fraud',
+    last_name: 'Analyst',
+    full_name: 'Fraud Analyst',
+    role: 'ANALYST',
+    department: 'AML',
+  },
+  'senior.analyser@intelisar.com': {
+    analyst_id: 2,
+    username: 'senior_analyser',
+    email: 'senior.analyser@intelisar.com',
+    password: 'senior123',
+    first_name: 'Senior',
+    last_name: 'Analyst',
+    full_name: 'Senior Fraud Analyst',
+    role: 'SENIOR_ANALYST',
+    department: 'AML',
+  },
+  // Admin credentials
+  'admin@intelisar.com': {
+    analyst_id: 3,
+    username: 'admin',
+    email: 'admin@intelisar.com',
+    password: 'admin123',
+    first_name: 'System',
+    last_name: 'Administrator',
+    full_name: 'System Administrator',
+    role: 'ADMIN',
+    department: 'IT',
+  },
+  'superadmin@intelisar.com': {
+    analyst_id: 4,
+    username: 'superadmin',
+    email: 'superadmin@intelisar.com',
+    password: 'super123',
+    first_name: 'Super',
+    last_name: 'Administrator',
+    full_name: 'Super Administrator',
+    role: 'ADMIN',
+    department: 'IT',
+  },
+  // Legacy credentials (keep for backward compatibility)
   'anishkalai2006@gmail.com': {
     analyst_id: 5,
     username: 'anish_kalai',
@@ -16,50 +64,6 @@ const mockAnalysts = {
     full_name: 'Anish Kalai',
     role: 'ANALYST',
     department: 'AML',
-  },
-  'john.doe@barclays.com': {
-    analyst_id: 1,
-    username: 'analyst1',
-    email: 'john.doe@barclays.com',
-    password: 'password123',
-    first_name: 'John',
-    last_name: 'Doe',
-    full_name: 'John Doe',
-    role: 'ANALYST',
-    department: 'AML',
-  },
-  'jane.smith@barclays.com': {
-    analyst_id: 2,
-    username: 'analyst2',
-    email: 'jane.smith@barclays.com',
-    password: 'password123',
-    first_name: 'Jane',
-    last_name: 'Smith',
-    full_name: 'Jane Smith',
-    role: 'SENIOR_ANALYST',
-    department: 'AML',
-  },
-  'admin@barclays.com': {
-    analyst_id: 3,
-    username: 'admin1',
-    email: 'admin@barclays.com',
-    password: 'admin123',
-    first_name: 'Admin',
-    last_name: 'User',
-    full_name: 'Admin User',
-    role: 'ADMIN',
-    department: 'IT',
-  },
-  'reviewer@barclays.com': {
-    analyst_id: 4,
-    username: 'reviewer1',
-    email: 'reviewer@barclays.com',
-    password: 'password123',
-    first_name: 'Review',
-    last_name: 'Officer',
-    full_name: 'Review Officer',
-    role: 'REVIEWER',
-    department: 'Compliance',
   },
 };
 

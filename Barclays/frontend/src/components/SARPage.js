@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Chatbot from './Chatbot';
+import AlertAnalytics from './AlertAnalytics';
 import './SARPage.css';
 
 const DiffViewer = ({ original, edited }) => {
@@ -537,6 +538,11 @@ const SARPage = () => {
             <Chatbot alertId={alertId} alertData={alert} />
           )}
         </div>
+
+        {/* Alert Analytics Section - Display below SAR generation */}
+        {sarContent && !isEditing && (
+          <AlertAnalytics alert={alert} />
+        )}
       </main>
 
       {/* Floating Chatbot Popup - Only show when editing */}

@@ -14,6 +14,13 @@ function generateMockSAR(alertData) {
   const amount = alertData.amount || 0;
   const transactionId = alertData.transaction_id || 'N/A';
   const accountId = alertData.account_id || 'N/A';
+  
+  // Cryptocurrency and Foreign Currency Details
+  const currencyType = alertData.currency_type || null;
+  const currencyCode = alertData.currency_code || '';
+  const amountUSD = alertData.amount_usd || amount;
+  const destination = alertData.destination || 'N/A';
+  const foreignCountry = alertData.foreign_country || 'Unknown';
 
   // Build SAR text
   const sarText = `
@@ -36,7 +43,16 @@ Filing Deadline: Due within 30 days of detection
 
 II. TRANSACTION DETAILS
 
-Transaction Amount: $${amount.toLocaleString()}
+${currencyType ? `
+╔ CRYPTOCURRENCY TRANSACTION ╗
+Transaction Type: ${currencyType} (${currencyCode})
+Crypto Amount: ${amount} ${currencyCode}
+USD Equivalent: $${amountUSD.toLocaleString()}
+Destination: ${destination}
+Foreign Country: ${foreignCountry}
+╚═══════════════════════════╝
+` : `Transaction Amount: $${amount.toLocaleString()}\n`}
+
 Patterns Detected: ${patterns.length > 0 ? patterns.join(', ') : 'N/A'}
 Confidence Score: ${confidence}%
 Risk Level: ${riskLevel}
@@ -49,11 +65,25 @@ III. DESCRIPTION OF SUSPICIOUS ACTIVITY
 The transaction involving ${customer} (Account: ${accountId}) has been flagged as 
 suspicious based on advanced machine learning analysis and behavioral pattern detection.
 
+${currencyType ? `
+CRYPTOCURRENCY ANALYSIS:
+Transaction Currency: ${currencyType} (${currencyCode})
+Amount: ${amount} ${currencyCode} (≈ $${amountUSD.toLocaleString()})
+Destination Country: ${foreignCountry}
+Destination Details: ${destination}
+
+Critical Factors:
+• Cryptocurrency transactions carry heightened AML/CFT risk
+• Privacy coins and mixing services increase suspicious activity likelihood
+• Transfers to high-risk jurisdictions are red flags
+• Ransomware and sanctions evasion commonly use crypto channels
+` : `
 Key Indicators:
 ${patterns.map((p, i) => `  ${i + 1}. ${p.replace(/_/g, ' ')}`).join('\n')}
 
 Risk Assessment: ${riskLevel}
 Confidence Level: ${confidence}%
+`}
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -68,6 +98,16 @@ Terrorist Financing Indicators:
   • High-risk jurisdictions involved
   • Rapid fund movement patterns
   • Multiple beneficiary involvement
+
+${currencyType ? `
+CRYPTOCURRENCY SPECIFIC RISKS:
+  • Anonymous or pseudo-anonymous transactions
+  • Rapid fund movement capabilities
+  • Regulatory arbitrage exploitation
+  • Sanctions evasion mechanisms
+  • Ransomware/extortion payment channels
+  • Cross-border transaction obfuscation
+` : ''}
 
 ═══════════════════════════════════════════════════════════════════════════════
 
