@@ -56,10 +56,61 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Try backend API authentication first
+      const response = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password
+        })
+      });
 
-      // Check credentials against dummy data
+      const data = await response.json();
+
+      if (response.ok && data.status === 'success') {
+        // Store JWT token and user info
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('analyst', JSON.stringify(data.analyst));
+
+        // Show success message
+        alert(`Welcome, ${data.analyst.full_name}!`);
+
+        // Navigate to dashboard
+        navigate('/dashboard');
+      } else {
+        // If backend auth fails, fallback to local JSON check (for demo purposes)
+        console.log('Backend auth failed, trying local auth...');
+        
+        const roleUsers = usersData[role] || [];
+        const user = roleUsers.find(u =>
+          u.username.toLowerCase() === formData.username.toLowerCase() &&
+          u.password === formData.password
+        );
+
+        if (user) {
+          localStorage.setItem('user', JSON.stringify({
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            role: user.role
+          }));
+
+          alert(`Welcome back, ${user.name}!`);
+          navigate('/dashboard');
+        } else {
+          setErrors({
+            general: data.error || 'Invalid username or password. Please try again.'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      // Fallback to local auth if API is unreachable
+      console.log('Backend unreachable, using local auth...');
       const roleUsers = usersData[role] || [];
       const user = roleUsers.find(u =>
         u.username.toLowerCase() === formData.username.toLowerCase() &&
@@ -67,7 +118,6 @@ const Login = () => {
       );
 
       if (user) {
-        // Store user info in localStorage (in real app, use secure tokens)
         localStorage.setItem('user', JSON.stringify({
           id: user.id,
           name: user.name,
@@ -75,20 +125,13 @@ const Login = () => {
           role: user.role
         }));
 
-        // Show success message
         alert(`Welcome back, ${user.name}!`);
-
-        // Navigate to dashboard
         navigate('/dashboard');
       } else {
         setErrors({
-          general: 'Invalid username or password. Please try again.'
+          general: 'Login failed. Backend service unavailable. Please try again later.'
         });
       }
-    } catch (error) {
-      setErrors({
-        general: 'Login failed. Please try again later.'
-      });
     } finally {
       setIsLoading(false);
     }

@@ -1,6 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import Chatbot from './Chatbot';
+import './SARPage.css';
+
+const DiffViewer = ({ original, edited }) => {
+  const getLineDiff = (origLine, editLine) => {
+    if (origLine === editLine) return { type: 'same', line: origLine };
+    if (!origLine) return { type: 'added', line: editLine };
+    if (!editLine) return { type: 'deleted', line: origLine };
+    return { type: 'modified', line: editLine };
+  };
+
+  const origLines = original.split('\n');
+  const editLines = edited.split('\n');
+  const maxLines = Math.max(origLines.length, editLines.length);
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Changes Preview</h3>
+      <div className="space-y-1 font-mono text-sm max-h-96 overflow-y-auto">
+        {Array.from({ length: maxLines }).map((_, idx) => {
+          const origLine = origLines[idx] || '';
+          const editLine = editLines[idx] || '';
+          const diff = getLineDiff(origLine, editLine);
+
+          if (diff.type === 'same') {
+            return (
+              <div key={idx} className="flex text-gray-600">
+                <span className="w-10 text-right pr-4 text-gray-400">{idx + 1}</span>
+                <span>{diff.line}</span>
+              </div>
+            );
+          } else if (diff.type === 'deleted') {
+            return (
+              <div key={idx} className="flex bg-red-50 text-red-800 border-l-4 border-red-500">
+                <span className="w-10 text-right pr-4 text-red-500">{idx + 1}</span>
+                <span className="flex-1">
+                  <span className="text-red-600 font-bold">−</span> {diff.line}
+                </span>
+              </div>
+            );
+          } else if (diff.type === 'added') {
+            return (
+              <div key={idx} className="flex bg-green-50 text-green-800 border-l-4 border-green-500">
+                <span className="w-10 text-right pr-4 text-green-500">{idx + 1}</span>
+                <span className="flex-1">
+                  <span className="text-green-600 font-bold">+</span> {diff.line}
+                </span>
+              </div>
+            );
+          } else {
+            return (
+              <div key={idx} className="flex bg-yellow-50 text-yellow-800 border-l-4 border-yellow-500">
+                <span className="w-10 text-right pr-4 text-yellow-500">{idx + 1}</span>
+                <span className="flex-1">
+                  <span className="text-yellow-600 font-bold">~</span> {diff.line}
+                </span>
+              </div>
+            );
+          }
+        })}
+      </div>
+    </div>
+  );
+};
 
 const SARPage = () => {
   const navigate = useNavigate();
@@ -9,8 +73,12 @@ const SARPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sarContent, setSarContent] = useState('');
+  const [editedContent, setEditedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+  const [versions, setVersions] = useState([]);
+  const [isChatbotMinimized, setIsChatbotMinimized] = useState(false);
   const [format, setFormat] = useState('text'); // 'text' or 'pdf'
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('default');
@@ -96,10 +164,13 @@ const SARPage = () => {
           }
         });
 
-        setSarContent(response.data.sarContent);
+        setSarContent(response.data.sar_text);
+        setEditedContent(response.data.sar_text);
+        setVersions([{ content: response.data.sar_text, timestamp: new Date() }]);
       }
       
       setIsEditing(false);
+      setShowDiff(false);
     } catch (err) {
       setError('Failed to generate SAR: ' + err.message);
       console.error(err);
@@ -109,13 +180,30 @@ const SARPage = () => {
   };
 
   const handleEditSAR = () => {
+    if (!isEditing) {
+      setEditedContent(sarContent);
+    }
     setIsEditing(!isEditing);
+    setShowDiff(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (editedContent.trim()) {
+      setSarContent(editedContent);
+      setVersions([...versions, { content: editedContent, timestamp: new Date() }]);
+      setIsEditing(false);
+      setShowDiff(false);
+      setIsChatbotMinimized(false);
+    }
+  };
+
+  const handleRevertVersion = (versionIdx) => {
+    setSarContent(versions[versionIdx].content);
+    setEditedContent(versions[versionIdx].content);
   };
 
   const handleSaveSAR = () => {
-    // Here you would save the edited SAR content
-    setIsEditing(false);
-    // You could make an API call to save the edited content
+    handleSaveEdit();
   };
 
   const handleSendMessage = () => {
@@ -276,8 +364,45 @@ const SARPage = () => {
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                {isEditing ? 'Save Edit' : 'Edit SAR'}
+                {isEditing ? 'Edit Mode On' : 'Edit SAR'}
               </button>
+
+              {isEditing && (
+                <>
+                  <button
+                    onClick={() => setShowDiff(!showDiff)}
+                    className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {showDiff ? 'Hide Diff' : 'View Diff'}
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditedContent(sarContent);
+                      setShowDiff(false);
+                      setIsChatbotMinimized(false);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-gray-400 text-white hover:bg-gray-500 transition-colors flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Cancel
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -314,9 +439,9 @@ const SARPage = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-280px)]">
-          {/* SAR Generation Section (3/4) */}
-          <div className="lg:col-span-3 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+        <div className={`grid gap-6 h-[calc(100vh-280px)] ${isEditing ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-4'}`}>
+          {/* SAR Generation Section */}
+          <div className={`bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden ${isEditing ? 'col-span-1' : 'lg:col-span-3'}`}>
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-gray-900">Suspicious Activity Report</h3>
@@ -330,14 +455,38 @@ const SARPage = () => {
               {sarContent ? (
                 <div>
                   {isEditing ? (
-                    <textarea
-                      value={sarContent}
-                      onChange={(e) => setSarContent(e.target.value)}
-                      className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      placeholder="Edit the SAR content..."
-                      style={{ minHeight: '400px' }}
-                    />
+                    // Split View Layout
+                    <div className="grid grid-cols-2 gap-6 min-h-full">
+                      {/* Left Pane - Original (Read-Only) */}
+                      <div className="flex flex-col border-2 border-gray-300 rounded-lg overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-3 border-b-2 border-gray-300 flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-900">Original SAR</h4>
+                          <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">Read-Only</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto bg-white p-4">
+                          <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800 leading-relaxed">
+                            {sarContent}
+                          </pre>
+                        </div>
+                      </div>
+
+                      {/* Right Pane - Editable */}
+                      <div className="flex flex-col border-2 border-green-300 rounded-lg overflow-hidden">
+                        <div className="bg-green-100 px-4 py-3 border-b-2 border-green-300 flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-900">Edited SAR</h4>
+                          <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">Editing</span>
+                        </div>
+                        <textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="flex-1 p-4 border-0 focus:ring-0 font-mono text-sm resize-none"
+                          placeholder="Make your edits here..."
+                          style={{ minHeight: '400px' }}
+                        />
+                      </div>
+                    </div>
                   ) : (
+                    // Normal View
                     <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                       <pre className="whitespace-pre-wrap text-gray-800 font-mono text-sm leading-relaxed">
                         {sarContent}
@@ -375,62 +524,100 @@ const SARPage = () => {
                   </button>
                 </div>
               )}
+
+              {/* Show Diff if requested */}
+              {isEditing && showDiff && sarContent && editedContent && (
+                <DiffViewer original={sarContent} edited={editedContent} />
+              )}
             </div>
           </div>
 
-          {/* Chatbot Section (1/4) */}
-          <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-gray-200 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">SAR Assistant</h3>
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              </div>
-            </div>
+          {/* Chatbot Section (1/4) - Only show when not editing */}
+          {!isEditing && (
+            <Chatbot alertId={alertId} alertData={alert} />
+          )}
+        </div>
+      </main>
 
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
-              {chatMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs px-4 py-2 rounded-lg ${
-                      message.sender === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-800 border border-gray-200'
-                    }`}
-                  >
-                    <p className="text-sm">{message.text}</p>
-                  </div>
+      {/* Floating Chatbot Popup - Only show when editing */}
+      {isEditing && (
+        <>
+          {isChatbotMinimized ? (
+            // Minimized Chatbot Icon
+            <button
+              onClick={() => setIsChatbotMinimized(false)}
+              className="fixed bottom-8 right-8 flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 z-50 animate-fadeIn"
+              title="Open SAR Assistant"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
+          ) : (
+            // Full Chatbot Window
+            <div className="fixed bottom-8 right-8 w-96 h-96 bg-white rounded-lg shadow-2xl border-2 border-blue-500 flex flex-col z-50 animate-fadeIn">
+              {/* Floating Chatbot Header */}
+              <div className="p-4 bg-blue-600 text-white rounded-t-lg flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+                  <h3 className="font-semibold">SAR Assistant</h3>
                 </div>
-              ))}
-            </div>
-
-            {/* Chat Input */}
-            <div className="p-6 border-t border-gray-200 flex-shrink-0">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Ask about this SAR..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
                 <button
-                  onClick={handleSendMessage}
-                  className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={() => setIsChatbotMinimized(true)}
+                  className="text-white hover:bg-blue-700 p-1 rounded transition-colors"
+                  title="Minimize SAR Assistant"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                {chatMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                        message.sender === 'user'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-800 border border-gray-300'
+                      }`}
+                    >
+                      <p>{message.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Chat Input */}
+              <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white rounded-b-lg">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask about SAR..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </main>
+          )}
+        </>
+      )}
     </div>
   );
 };

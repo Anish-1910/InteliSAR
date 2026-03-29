@@ -12,7 +12,51 @@ CREATE DATABASE barclays_aml OWNER postgres;
 -- (In psql, run: \c barclays_aml)
 
 -- ============================================================================
--- 1. ACCOUNTS TABLE 
+-- 1. ANALYSTS/EMPLOYEES TABLE (Login Credentials)
+-- ============================================================================
+CREATE TABLE analysts (
+    analyst_id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,          -- Login username
+    email VARCHAR(255) NOT NULL UNIQUE,             -- Email address
+    password_hash VARCHAR(255) NOT NULL,            -- Hashed password
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    full_name VARCHAR(255),                         -- Full name for display
+    
+    -- Role & Permissions
+    role VARCHAR(50) NOT NULL,                      -- ANALYST, SENIOR_ANALYST, ADMIN, REVIEWER, MANAGER
+    department VARCHAR(100),                        -- AML, Compliance, Risk, etc.
+    manager_id INT REFERENCES analysts(analyst_id) ON DELETE SET NULL,  -- Reports to
+    
+    -- Status
+    is_active BOOLEAN DEFAULT true,                 -- Account active/inactive
+    is_locked BOOLEAN DEFAULT false,                -- Locked due to failed login attempts
+    failed_login_attempts INT DEFAULT 0,
+    last_failed_login TIMESTAMP,
+    
+    -- Session & Security
+    last_login TIMESTAMP,
+    last_logout TIMESTAMP,
+    session_id VARCHAR(255),                        -- Current session token
+    session_expires TIMESTAMP,
+    
+    -- Contact Info
+    phone_number VARCHAR(20),
+    office_location VARCHAR(100),
+    
+    -- Audit
+    created_by INT REFERENCES analysts(analyst_id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    updated_by INT REFERENCES analysts(analyst_id) ON DELETE SET NULL,
+    
+    -- Additional Info
+    notes TEXT,
+    CONSTRAINT valid_role CHECK (role IN ('ANALYST', 'SENIOR_ANALYST', 'ADMIN', 'REVIEWER', 'MANAGER'))
+);
+
+-- ============================================================================
+-- 2. ACCOUNTS TABLE 
 -- ============================================================================
 CREATE TABLE accounts (
     account_id VARCHAR(255) PRIMARY KEY,
@@ -30,7 +74,7 @@ CREATE TABLE accounts (
 );
 
 -- ============================================================================
--- 2. TRANSACTIONS TABLE
+-- 3. TRANSACTIONS TABLE
 -- ============================================================================
 CREATE TABLE transactions (
     transaction_id VARCHAR(255) PRIMARY KEY,
@@ -83,7 +127,6 @@ CREATE TABLE alerts (
     confidence_score INT NOT NULL,                     -- Score that triggered alert
     risk_level VARCHAR(50) NOT NULL,                   -- HIGH, CRITICAL
     priority VARCHAR(50),                              -- IMMEDIATE, HIGH, MEDIUM, LOW
-    
     -- Pattern Details
     patterns_detected TEXT[],                          -- Array of pattern names
     pattern_scores JSONB,                              -- JSON of pattern scores
@@ -118,13 +161,19 @@ CREATE TABLE version_log (
     
     -- Change Details
     version_number INT NOT NULL,                      -- Version number (1, 2, 3, etc.)
+    
+    -- Full SAR Content Versioning
+    sar_content TEXT,                                 -- Complete SAR text content for this version
+    sar_format VARCHAR(50),                           -- TEXT or PDF
+    
+    -- Change Tracking
     field_changed VARCHAR(255),                       -- Which field was changed (e.g., 'narrative', 'findings', 'status')
     old_value TEXT,                                   -- Previous value
     new_value TEXT,                                   -- New value
     change_description TEXT,                          -- Human-readable description of change
     
     -- Additional Context
-    change_type VARCHAR(50),                          -- ADDED, MODIFIED, DELETED, APPROVED, REJECTED
+    change_type VARCHAR(50),                          -- ADDED, MODIFIED, DELETED, APPROVED, REJECTED, GENERATED
     sar_status_before VARCHAR(50),                    -- SAR status before change (DRAFT, PENDING, APPROVED, etc.)
     sar_status_after VARCHAR(50),                     -- SAR status after change
     
@@ -237,8 +286,39 @@ INSERT INTO pattern_definitions (pattern_name, pattern_description, weight) VALU
     ('Circular Transactions', 'Round-trip money movement between accounts', 0.12);
 
 -- ============================================================================
+-- 9a. TEST ANALYSTS DATA (For Development & Testing)
+-- ============================================================================
+-- NOTE: In production, these test credentials should be removed and replaced with real user credentials
+-- Passwords are hashed with bcrypt in production - these are test hashes
+-- Test credentials:
+--   Username: analyst1     | Password: password123
+--   Username: analyst2     | Password: password123
+--   Username: admin1       | Password: admin123
+--   Username: anish_kalai  | Password: anish123
+
+-- Insert test analysts (password hashes are example values - use bcrypt in production)
+INSERT INTO analysts (username, email, password_hash, first_name, last_name, full_name, role, department, is_active, created_at, updated_at) VALUES
+('analyst1', 'john.doe@barclays.com', '$2b$10$w7cEuM7vjqO1K1q0Q0q0a.example', 'John', 'Doe', 'John Doe', 'ANALYST', 'AML', true, NOW(), NOW()),
+('analyst2', 'jane.smith@barclays.com', '$2b$10$w7cEuM7vjqO1K1q0Q0q0a.example', 'Jane', 'Smith', 'Jane Smith', 'SENIOR_ANALYST', 'AML', true, NOW(), NOW()),
+('admin1', 'admin@barclays.com', '$2b$10$w7cEuM7vjqO1K1q0Q0q0a.example', 'Admin', 'User', 'Admin User', 'ADMIN', 'IT', true, NOW(), NOW()),
+('reviewer1', 'reviewer@barclays.com', '$2b$10$w7cEuM7vjqO1K1q0Q0q0a.example', 'Review', 'Officer', 'Review Officer', 'REVIEWER', 'Compliance', true, NOW(), NOW()),
+('anish_kalai', 'anishkalai2006@gmail.com', '$2b$10$PnXv.GORlFsDXOvJlAh3I.nhYd1.A5GIVvkzweDdhg9VUGLPyAL3i', 'Anish', 'Kalai', 'Anish Kalai', 'ANALYST', 'AML', true, NOW(), NOW());
+
+-- Note: To generate proper bcrypt hashes for production, use:
+-- In Node.js: const hash = await bcrypt.hash('password', 10);
+-- The above test hashes are placeholders and should be replaced with real bcrypt hashes
+
+-- ============================================================================
 -- 10. INDEXES FOR PERFORMANCE
 -- ============================================================================
+
+-- Analysts indexes (for fast login lookup and session management)
+CREATE INDEX idx_analysts_username ON analysts(username);
+CREATE INDEX idx_analysts_email ON analysts(email);
+CREATE INDEX idx_analysts_session_id ON analysts(session_id);
+CREATE INDEX idx_analysts_is_active ON analysts(is_active);
+CREATE INDEX idx_analysts_role ON analysts(role);
+CREATE INDEX idx_analysts_last_login ON analysts(last_login DESC);
 
 -- Transactions indexes
 CREATE INDEX idx_transactions_account_id ON transactions(account_id);
